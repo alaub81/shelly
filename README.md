@@ -1,10 +1,19 @@
 # Shelly Scripts
 
-some shelly scripts, which you are able to use on all Shelly device, which have script support onboard.
+This repository covers Shelly scripts for automating power management and lighting based on device events, ambient light levels, motion detection, and time-of-day conditions. Each script is compatible with Shelly devices that support scripting. Check them out.
+
+## Scripts Overview
+
+1. `shelly-idle-timer.js`
+    Automates switch-off based on low power consumption, saving energy.
+2. `shelly-blu-motion-illuminance.js`
+    Activates motion detection only in low light, using a Shelly Blu Motion sensor.
+3. `shelly-blu-motion-darknight.js`
+    Controls lighting based on motion, light levels, and night-time detection.
 
 ## `shelly-idle-timer.js`
 
-This Shelly script, `helly-idle-timer.js`, is designed to monitor the power consumption of a specified switchID on a Shelly device. It turns off the switch automatically after a specified idle time if the power remains below a set threshold, helping save energy by turning off devices that are not actively in use.
+This Shelly script, `shelly-idle-timer.js`, is designed to monitor the power consumption of a specified switchID on a Shelly device. It turns off the switch automatically after a specified idle time if the power remains below a set threshold, helping save energy by turning off devices that are not actively in use.
 
 ### Configuration Parameters
 
@@ -32,15 +41,6 @@ To customize the behavior of this script, adjust the following parameters in the
 3. **Debug Logging**:
    - When `DEBUG_LOG` is enabled, the script logs detailed messages for easier troubleshooting.
 
-### Functions Overview
-
-- `logger(message, prefix)`: Logs messages to the console if `DEBUG_LOG` is enabled.
-- `startTimer()`: Starts a timer that will turn off the switch after `IDLE_TIMEOUT` minutes if the power remains below `POWER_THRESHOLD`.
-- `clearTimer()`: Clears the active timer, if any.
-- **Event Handler**: Responds to Shelly switch events to start or stop the timer based on power updates and switch toggles.
-
-This script is efficient for automating power management tasks, ensuring devices only stay on while actively consuming power above a specified level.
-
 ### Example Usage
 
 To use the script with a power threshold of 5 watts, an idle timeout of 10 minutes, and debug logging enabled, set up `CONFIG` as follows:
@@ -62,27 +62,27 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
 
 ### Configuration Parameters
 
-### Debug and Scanning Settings
+#### Debug and Scanning Settings
 
 - **debug**: `true` or `false` — Enables debug mode to log additional information to the console. *Default*: `false`
 - **active**: `true` or `false` — Enables or disables active Bluetooth scanning. *Default*: `false`
 
-### Light Threshold Settings
+#### Light Threshold Settings
 
 - **darknessThreshold**: *Number* — Sets the light threshold in lux; any value below this threshold is considered "dark," triggering motion detection. *Default*: `1`
 
-### Allowed MAC Addresses
+#### Allowed MAC Addresses
 
 - **allowedMacAddresses**: *Array of Strings* — Lists the MAC addresses of approved devices for which motion and light data will be processed. Example:
 
   ```javascript
   allowedMacAddresses: [
     "0b:ae:5f:33:9b:3c",
-    "1a:22:33:62:5a:bc"
+    "1a:22:33:62:5a:bc",
   ]
   ```
 
-### Switch ID
+#### Switch ID
 
 - **switchId**: *Number* — Specifies the ID of the Shelly switch that should be activated upon motion detection in darkness. This ID is used to identify the target switch when calling `Shelly.call("Switch.Set", { id: switchId, on: motion })`. *Default*: `0`
 
@@ -93,6 +93,8 @@ This script provides a robust way to control lighting based on motion detection,
 This script is designed to control a light based on motion detection from Bluetooth Low Energy (BLE) sensors and ambient light conditions. It ensures that the light only turns on when it’s dark and motion is detected, and turns off only when there is no more detected motion from any sensor.
 
 The script uses geographic coordinates to calculate sunrise and sunset times, enabling it to distinguish between night and day. Additionally, the light status is checked to avoid redundant on/off commands.
+
+Note: Bluetooth (BLE) must be enabled in the device settings for this script to function correctly.
 
 ### How It Works
 
@@ -118,7 +120,14 @@ The script uses geographic coordinates to calculate sunrise and sunset times, en
 - **`longitude`** *(float)*: The longitude of your location.
 - **`timezone`** *(string)*: Timezone identifier (e.g., `UTC`) for the sunrise/sunset API request.
 - **`darknessThreshold`** *(integer)*: Sets the lux threshold below which it’s considered "dark." If current illuminance falls below this, the system considers it dark enough to turn on the light when motion is detected.
-- **`allowedMacAddresses`** *(array)*: List of MAC addresses for allowed motion sensors to monitor for motion.
+- **`allowedMacAddresses`** *(array)*: List of MAC addresses for allowed motion sensors to monitor for motion. Example:
+
+  ```javascript
+  allowedMacAddresses: [
+    "0b:ae:5f:33:9b:3c",
+    "1a:22:33:62:5a:bc",
+  ]
+  ```
 
 #### Optional Parameters
 
