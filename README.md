@@ -79,7 +79,8 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
     "0b:ae:5f:33:9b:3c",
     "1a:22:33:62:5a:bc"
   ]
-
+  ```
+  
 ### Switch ID
 
 - **switchId**: *Number* — Specifies the ID of the Shelly switch that should be activated upon motion detection in darkness. This ID is used to identify the target switch when calling `Shelly.call("Switch.Set", { id: switchId, on: motion })`. *Default*: `0`
