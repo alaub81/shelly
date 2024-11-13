@@ -5,10 +5,13 @@ This repository covers Shelly scripts for automating power management and lighti
 ## Scripts Overview
 
 1. `shelly-idle-timer.js`
+
     Automates switch-off based on low power consumption, saving energy.
 2. `shelly-blu-motion-illuminance.js`
+
     Activates motion detection only in low light, using a Shelly Blu Motion sensor.
 3. `shelly-blu-motion-darknight.js`
+
     Controls lighting based on motion, light levels, and night-time detection.
 
 ## `shelly-idle-timer.js`
