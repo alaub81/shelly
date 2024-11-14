@@ -7,10 +7,13 @@ This repository covers Shelly scripts for automating power management and lighti
 1. `shelly-idle-timer.js`
 
     Automates switch-off based on low power consumption, saving energy.
-2. `shelly-blu-motion-illuminance.js`
+2. `shelly-blu-motion.js`
+
+    Activates motion detection using a Shelly Blu Motion sensor.
+3. `shelly-blu-motion-illuminance.js`
 
     Activates motion detection only in low light, using a Shelly Blu Motion sensor.
-3. `shelly-blu-motion-darknight.js`
+4. `shelly-blu-motion-darknight.js`
 
     Controls lighting based on motion, light levels, and night-time detection.
 
@@ -57,24 +60,13 @@ const CONFIG = {
 };
 ```
 
-## `shelly-blu-motion-illuminance.js`
+## `shelly-blu-motion.js`
 
-This script configures and operates a Shelly Blu Motion sensor to detect motion and adjust behavior based on ambient light levels. The sensor activates motion detection only when it's dark, based on configurable parameters in the `CONFIG` object. If motion is correctly detected, the configured switch will turned on, otherwise the switch will turned off.
+This script configures and operates a Shelly Blu Motion sensor to detect motion. If motion is correctly detected, the configured switch will turned on, otherwise the switch will turned off.
 
 Note: Bluetooth (BLE) must be enabled in the device settings for this script to function correctly.
 
 ### Configuration Parameters
-
-#### Debug and Scanning Settings
-
-- **debug**: `true` or `false` — Enables debug mode to log additional information to the console. *Default*: `false`
-- **active**: `true` or `false` — Enables or disables active Bluetooth scanning. *Default*: `false`
-
-#### Light Threshold Settings
-
-- **darknessThreshold**: *Number* — Sets the light threshold in lux; any value below this threshold is considered "dark," triggering motion detection. *Default*: `1`
-
-#### Allowed MAC Addresses
 
 - **allowedMacAddresses**: *Array of Strings* — Lists the MAC addresses of approved devices for which motion and light data will be processed. Example:
 
@@ -85,13 +77,43 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
   ]
   ```
 
-#### Switch ID
-
 - **switchId**: *Number* — Specifies the ID of the Shelly switch that should be activated upon motion detection in darkness. This ID is used to identify the target switch when calling `Shelly.call("Switch.Set", { id: switchId, on: motion })`. *Default*: `0`
+
+#### Debug and Scanning Settings
+
+- **debug**: `true` or `false` — Enables debug mode to log additional information to the console. *Default*: `false`
+- **active**: `true` or `false` — Enables or disables active Bluetooth scanning. *Default*: `false`
+
+## `shelly-blu-motion-illuminance.js`
+
+This script configures and operates a Shelly Blu Motion sensor to detect motion and adjust behavior based on ambient light levels. The sensor activates motion detection only when it's dark, based on configurable parameters in the `CONFIG` object. If motion is correctly detected, the configured switch will turned on, otherwise the switch will turned off, only when there is no more detected motion from any sensor. Additionally, the light status is checked to avoid redundant on/off commands.
+
+Note: Bluetooth (BLE) must be enabled in the device settings for this script to function correctly.
+
+### Configuration Parameters
+
+#### Essential Parameters
+
+- **`allowedMacAddresses`**: *Array of Strings* — Lists the MAC addresses of approved devices for which motion and light data will be processed. Example:
+
+  ```javascript
+  allowedMacAddresses: [
+    "0b:ae:5f:33:9b:3c",
+    "1a:22:33:62:5a:bc",
+  ]
+  ```
+
+- **`switchId`**: *Number* — Specifies the ID of the Shelly switch that should be activated upon motion detection in darkness. This ID is used to identify the target switch when calling `Shelly.call("Switch.Set", { id: switchId, on: motion })`. *Default*: `0`
+- **`darknessThreshold`**: *Number* — Sets the light threshold in lux; any value below this threshold is considered "dark," triggering motion detection. *Default*: `1`
+
+#### Debug and Scanning Settings
+
+- **debug**: `true` or `false` — Enables debug mode to log additional information to the console. *Default*: `false`
+- **active**: `true` or `false` — Enables or disables active Bluetooth scanning. *Default*: `false`
 
 ## `shelly-blu-motion-darknight.js`
 
-This script provides a robust way to control lighting based on motion detection, ambient light levels, and night-time detection using Shelly devices and BLE sensors. With the flexibility of configurable parameters and real-time sensor readings, it helps automate lighting efficiently and with reduced redundancy.
+This script provides a robust way to control lighting based on motion detection, ambient light levels, and night-time detection using Shelly devices and BLU Motion sensors. With the flexibility of configurable parameters and real-time sensor readings, it helps automate lighting efficiently and with reduced redundancy.
 
 This script is designed to control a light based on motion detection from Bluetooth Low Energy (BLE) sensors and ambient light conditions. It ensures that the light only turns on when it’s dark and motion is detected, and turns off only when there is no more detected motion from any sensor.
 
@@ -119,10 +141,6 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
 
 #### Essential Parameters
 
-- **`latitude`** *(float)*: The latitude of your location, used to calculate sunrise and sunset times.
-- **`longitude`** *(float)*: The longitude of your location.
-- **`timezone`** *(string)*: Timezone identifier (e.g., `UTC`) for the sunrise/sunset API request.
-- **`darknessThreshold`** *(integer)*: Sets the lux threshold below which it’s considered "dark." If current illuminance falls below this, the system considers it dark enough to turn on the light when motion is detected.
 - **`allowedMacAddresses`** *(array)*: List of MAC addresses for allowed motion sensors to monitor for motion. Example:
 
   ```javascript
@@ -132,8 +150,13 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
   ]
   ```
 
-#### Optional Parameters
+- **`switchId`**: *Number* — Specifies the ID of the Shelly switch that should be activated upon motion detection in darkness. This ID is used to identify the target switch when calling `Shelly.call("Switch.Set", { id: switchId, on: motion })`. *Default*: `0`
+- **`latitude`** *(float)*: The latitude of your location, used to calculate sunrise and sunset times.
+- **`longitude`** *(float)*: The longitude of your location.
+- **`timezone`** *(string)*: Timezone identifier (e.g., `UTC`) for the sunrise/sunset API request.
+- **`darknessThreshold`** *(integer)*: Sets the lux threshold below which it’s considered "dark." If current illuminance falls below this, the system considers it dark enough to turn on the light when motion is detected.
+
+#### Debug and Scanning Settings
 
 - **`debug`** *(boolean)*: Enables or disables debug logging. Set to `true` for more verbose output.
 - **`active`** *(boolean)*: Sets whether the BLE scanner should run in active mode.
-- **switchId**: *Number* — Specifies the ID of the Shelly switch that should be activated upon motion detection in darkness. This ID is used to identify the target switch when calling `Shelly.call("Switch.Set", { id: switchId, on: motion })`. *Default*: `0`
