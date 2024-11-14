@@ -11,6 +11,9 @@ let CONFIG = {
     "1a:22:33:62:5a:bc", 
   ],
 
+  // Which of the device output should be switched
+  switchId: 0,
+
   // Threshold value for darkness in lux
   darknessThreshold: 1, // Lighting value below this value is considered ‘dark’
 
@@ -84,9 +87,9 @@ let CONFIG = {
         if (CONFIG.currentIlluminance !== null && CONFIG.currentIlluminance <= CONFIG.darknessThreshold && CONFIG.isNightTime()) {
           logger("Motion detected in darkness.", "Info");
           // Query the status of the light before it is switched on
-          Shelly.call("Switch.GetStatus", { id: 0 }, function (status) {
+          Shelly.call("Switch.GetStatus", { id: CONFIG.switchId }, function (status) {
             if (!status.output) { // Only switch on when the light is of
-              Shelly.call("Switch.Set", { id: 0, on: true });
+              Shelly.call("Switch.Set", { id: CONFIG.switchId, on: true });
               logger("light turned on.", "Info");
             } else {
               logger("light is already on.", "Info");
@@ -106,9 +109,9 @@ let CONFIG = {
         // Switch off the light if no more movement is detected by any sensor
         if (CONFIG.activeMotionCount === 0) {
           // Query the status of the light before it is switched off
-          Shelly.call("Switch.GetStatus", { id: 0 }, function (status) {
+          Shelly.call("Switch.GetStatus", { id: CONFIG.switchId }, function (status) {
             if (status.output) { // Only switch off when the light is on
-              Shelly.call("Switch.Set", { id: 0, on: false });
+              Shelly.call("Switch.Set", { id: CONFIG.switchId, on: false });
               logger("No motion detected from any sensor, light turned off.", "Info");
             } else {
               logger("No motion detected from any sensor, but light is already off.", "Info");

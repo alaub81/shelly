@@ -1,89 +1,30 @@
 /******************* START CHANGE HERE *******************/
 let CONFIG = {
-  // enable / disable debug mode
+  // When set to true, debug messages will be logged to the console
   debug: false,
-  // enable / disable active bluetooth scanning
+
+  // When set to true and the script ownes the scanner, the scan will be active. 
+  // Active scan means the scanner will ping back the Bluetooth device to receive all its data, but it will drain the battery faster
   active: false,
 
-  // Threshold value for darkness in lux
-  darknessThreshold: 1, // Lighting value below this value is considered ‘dark’
-
+  // When `allowedMacAddresses` is set to null, evets from every bluetooth device are accepted. 
+  // allowedMacAddresses: null, 
   allowedMacAddresses: [
-    "0b:ae:5f:33:9b:3c",
-    "1a:22:33:62:5a:bc", 
+    "aa:bc:12:34:56:78", // events only from these mac addresses are allowed.
+    "11:22:33:45:5a:bc", 
   ],
 
-  // Which of the device output should be switched
-  switchId: 0,
-
-  // Saves the current lighting value, do not change
-  currentIlluminance: null,
-
-  // Space for the number of active motion detection, do not change
-  activeMotionCount: 0,
-
-  // Space for the object to save the movement status of each sensor
-  motionStates: {},
-
-  illuminanceHandler: function (illuminance, eventData) {
-    CONFIG.currentIlluminance = illuminance;
-    console.log("Current illuminance:", illuminance);
-  },
-
+  /**
+   * Called when motion is reported from the filtered Shelly BLU Motion devices.
+   * @param {Boolean} motion true, when there is a motion, false otherwise. 
+   * @param {Object} eventData Object, containing all parameters received from the Shelly BLU Motion device. Example: {"encryption":false,"BTHome_version":2,"pid":16,"battery":100,"illuminance":109,"motion":1,"button":1,"rssi":-53,"address":"aa:bc:12:34:56:78"} 
+   */
   motionHandler: function (motion, eventData) {
-    let sensorID = eventData.address || eventData.deviceID; // Use ‘address’ or ‘deviceID’ of the sensor as sensorID
-    if (typeof CONFIG.motionStates[sensorID] === "undefined") {
-      CONFIG.motionStates[sensorID] = false;
-    }
-    if (motion) {
-      // If movement is detected and the sensor has not yet signalled any movement
-      if (!CONFIG.motionStates[sensorID]) {
-        // Motion of the sensor is recognised for the first time
-        CONFIG.motionStates[sensorID] = true;  // Set status to ‘Motion detected’
-        CONFIG.activeMotionCount++; // Motion detected - increase counter
-        logger(["Motion detected from sensor:", sensorID, "Active motion count:", CONFIG.activeMotionCount], "Info");
-        // Check whether it is dark enough
-        if (CONFIG.currentIlluminance !== null && CONFIG.currentIlluminance <= CONFIG.darknessThreshold) {
-          logger("Motion detected in darkness.", "Info");
-          // Query the status of the light before it is switched on
-          Shelly.call("Switch.GetStatus", { id: CONFIG.switchId }, function (status) {
-            if (!status.output) { // Only switch on when the light is of
-              Shelly.call("Switch.Set", { id: CONFIG.switchId, on: true });
-              logger("light turned on.", "Info");
-            } else {
-              logger("light is already on.", "Info");
-            }
-          });
-        } else {
-          logger("Motion detected but ignored due to sufficient light.", "Info");  
-        }
-      }  
-    } else {
-      // If no more motion is detected and the sensor previously signalled motion
-      if (CONFIG.motionStates[sensorID]) {
-        // Motion of the sensor is terminated
-        CONFIG.motionStates[sensorID] = false; // Set status to ‘no motion’
-        CONFIG.activeMotionCount = Math.max(0, CONFIG.activeMotionCount - 1); // Reduce counter
-        logger(["Motion ended from sensor:", sensorID, "Active motion count:", CONFIG.activeMotionCount], "Info");
-        // Switch off the light if no more movement is detected by any sensor
-        if (CONFIG.activeMotionCount === 0) {
-          // Query the status of the light before it is switched off
-          Shelly.call("Switch.GetStatus", { id: CONFIG.switchId }, function (status) {
-            if (status.output) { // Only switch off when the light is on
-              Shelly.call("Switch.Set", { id: CONFIG.switchId, on: false });
-              logger("No motion detected from any sensor, light turned off.", "Info");
-            } else {
-              logger("No motion detected from any sensor, but light is already off.", "Info");
-            }
-          });
-        }
-      }
-    }
-    // Debug output for the number of active motion detections
-    logger(["Active motion count:", CONFIG.activeMotionCount], "Info");
+    // Toggle the first replay ON/OFF based on the motion value.
+    Shelly.call("Switch.Set", { id: 0, on: motion });
+    console.log("Motion", motion);
   },
 };
-
 /******************* STOP CHANGE HERE *******************/
 
 let ALLTERCO_MFD_ID_STR = "0ba9";
@@ -224,19 +165,19 @@ function onReceivedPacket (data) {
   }
 
   if (
-    typeof CONFIG.illuminanceHandler === "function" &&
-    typeof data.illuminance !== "undefined"
-  ) {
-    CONFIG.illuminanceHandler(data.illuminance, data);
-    logger("Illuminance handler called", "Info");
-  }
-
-  if (
     typeof CONFIG.motionHandler === "function" &&
     typeof data.motion !== "undefined"
   ) {
     CONFIG.motionHandler(data.motion === 1, data);
     logger("Motion handler called", "Info");
+  }
+
+  if (
+    typeof CONFIG.illuminanceHandler === "function" &&
+    typeof data.illuminance !== "undefined"
+  ) {
+    CONFIG.illuminanceHandler(data.illuminance, data);
+    logger("Illuminance handler called", "Info");
   }
 
   if (typeof CONFIG.onStatusUpdate === "function") {
