@@ -68,6 +68,8 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
 
 ### Configuration Parameters
 
+#### Essential Parameters
+
 - **allowedMacAddresses**: *Array of Strings* — Lists the MAC addresses of approved devices for which motion and light data will be processed. Example:
 
   ```javascript
