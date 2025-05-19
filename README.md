@@ -17,6 +17,10 @@ This repository covers Shelly scripts for automating power management and lighti
 
     Controls lighting based on motion, light levels, and night-time detection.
 
+5. `shelly-status-check.py`
+
+    Shelly Status Checker Script, to have a status overview of the shellies.
+
 ## `shelly-idle-timer.js`
 
 This Shelly script, `shelly-idle-timer.js`, is designed to monitor the power consumption of a specified switchID on a Shelly device. It turns off the switch automatically after a specified idle time if the power remains below a set threshold, helping save energy by turning off devices that are not actively in use.
