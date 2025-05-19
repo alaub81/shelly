@@ -258,7 +258,7 @@ By default, it sorts the table by IP address.
 
 ---
 
-## 🔒 Optional Authentication
+## Optional Authentication
 
 If your Shelly devices require HTTP authentication, set:
 
