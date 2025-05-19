@@ -250,7 +250,7 @@ By default, it sorts the table by IP address.
 
 ---
 
-## ⚙️ Requirements
+## Requirements
 
 - Python 3.6+
 - Shelly Gen2 devices with RPC enabled
@@ -270,7 +270,7 @@ inside the script.
 
 ---
 
-## 🧾 Example Output
+## Example Output
 
 ```
 +-------------------------+-------------+------------+------------+---------------+-------------+--------+-----------------------+-----------------------+
