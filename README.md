@@ -231,16 +231,48 @@ Run the script directly:
 
 By default, it sorts the table by IP address.
 
-Optional: Sort by other metrics
+### Optional: Sort by other metrics
 
 ```bash
 ./shelly-status-check.py --sort uptime
 ./shelly-status-check.py --sort wifi
 ```
 
-```bash
-Option	Description
---sort ip	Sorts alphabetically by IP/host (default)
---sort uptime	Sorts by device uptime (descending)
---sort wifi	Sorts by WiFi signal strength (best first)
+| Option       | Description                        |
+|--------------|------------------------------------|
+| `--sort ip`  | Sorts alphabetically by IP/host (default) |
+| `--sort uptime` | Sorts by device uptime (descending) |
+| `--sort wifi` | Sorts by WiFi signal strength (best first) |
+
+---
+
+## ⚙️ Requirements
+
+- Python 3.6+
+- Shelly Gen2 devices with RPC enabled
+- Devices must be reachable over HTTP in the local network
+
+---
+
+## 🔒 Optional Authentication
+
+If your Shelly devices require HTTP authentication, set:
+
+```python
+auth = ('admin', 'yourpassword')
+```
+
+inside the script.
+
+---
+
+## 🧾 Example Output
+
+```
++-------------------------+-------------+------------+------------+---------------+-------------+--------+-----------------------+-----------------------+
+| IP                      | Reachable   | Uptime     | Eco Mode   | WiFi (dBm)    | Bluetooth   | MQTT   | Debug UDP             | Scripts               |
++-------------------------+-------------+------------+------------+---------------+-------------+--------+-----------------------+-----------------------+
+| shelly-kitchen.local    | ✅           | 3d 4h 12m  | True       | -42           | ✅           | ✅     | 192.168.1.100:514     | temp_logger           |
+| shelly-garage.local     | ✅           | 0d 7h 53m  | False      | -69           | ❌           | ❌     | –                     | –                     |
++-------------------------+-------------+------------+------------+---------------+-------------+--------+-----------------------+-----------------------+
 ```
