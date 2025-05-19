@@ -162,3 +162,85 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
 
 - **`debug`** *(boolean)*: Enables or disables debug logging. Set to `true` for more verbose output.
 - **`active`** *(boolean)*: Sets whether the BLE scanner should run in active mode.
+
+# `shelly-status-check.py`
+
+Shelly Status Checker
+
+This script collects status information from multiple Shelly Gen2 devices in your network and displays it in a neatly formatted table. It supports various metrics such as uptime, WiFi signal strength, MQTT status, debug UDP logging configuration, and installed scripts.
+
+## Features
+
+- Queries a list of Shelly devices via their IP or hostname
+- Displays:
+  - Uptime (formatted as `Xd Xh Xm`)
+  - WiFi signal strength (RSSI)
+  - Eco Mode status (enable / diable)
+  - Bluetooth status (enable / diable)
+  - MQTT status (enable / diable)
+  - Debug UDP target
+  - Installed scripts
+- Sortable output (by IP, uptime, or WiFi signal)
+- Clean tabular display via `tabulate`
+
+## Installation
+
+1. **Install required Python packages**:
+
+```bash
+pip install requests tabulate
+```
+
+or on debian based systems
+
+```bash
+apt update && apt install python3-requests python3-tabulate
+```
+
+2. **Make the script executable (optional)**:
+
+```bash
+chmod +x shelly-status-check.py
+```
+
+3. **Ensure your Shelly devices are reachable via DNS or static IP**.
+4. **Create a list of device IPs or hostnames in a file named**:
+
+'shellies.txt'
+Each line should contain one hostname or IP:
+
+```bash
+shelly-kitchen.local
+shelly-garage.local
+192.168.1.42
+```
+
+you can also generate your list with nmap, here is an example, all shelly devices must have shelly in their hostname:
+
+```bash
+nmap -sP 192.168.1.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
+```
+
+## Usage
+
+Run the script directly:
+
+```bash
+./shelly-status-check.py
+```
+
+By default, it sorts the table by IP address.
+
+Optional: Sort by other metrics
+
+```bash
+./shelly-status-check.py --sort uptime
+./shelly-status-check.py --sort wifi
+```
+
+```bash
+Option	Description
+--sort ip	Sorts alphabetically by IP/host (default)
+--sort uptime	Sorts by device uptime (descending)
+--sort wifi	Sorts by WiFi signal strength (best first)
+```
