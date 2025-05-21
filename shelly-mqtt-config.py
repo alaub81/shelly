@@ -13,7 +13,7 @@ auth = None  # Beispiel: auth = ('admin', 'passwort')
 # 📦 Basis-MQTT-Konfiguration (client_id und topic_prefix werden je Host angepasst)
 base_config = {
     "enable": True,
-    "server": "laub-mqtt.laub.loc:8883",
+    "server": "mqtthostname:8883",
     "user": "mosquitto",
     "pass": "password",  # ❗ DEIN MQTT-PASSWORT HIER EINTRAGEN
     "ssl_ca": "*",
