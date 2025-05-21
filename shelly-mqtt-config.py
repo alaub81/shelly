@@ -15,7 +15,7 @@ base_config = {
     "enable": True,
     "server": "laub-mqtt.laub.loc:8883",
     "user": "mosquitto",
-    "pass": "Karma33$",  # ❗ DEIN MQTT-PASSWORT HIER EINTRAGEN
+    "pass": "password",  # ❗ DEIN MQTT-PASSWORT HIER EINTRAGEN
     "ssl_ca": "*",
     "rpc_ntf": True,
     "status_ntf": True,
