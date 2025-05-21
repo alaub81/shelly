@@ -38,7 +38,7 @@ To customize the behavior of this script, adjust the following parameters in the
 
 ### Script Functionality
 
-1. **Power Monitoring**: 
+1. **Power Monitoring**:
    - The script continually checks the power usage of the specified switch.
    - When the power falls below `POWER_THRESHOLD` for the `IDLE_TIMEOUT` duration, the script automatically turns off the switch.
 
@@ -167,13 +167,13 @@ Note: Bluetooth (BLE) must be enabled in the device settings for this script to 
 - **`debug`** *(boolean)*: Enables or disables debug logging. Set to `true` for more verbose output.
 - **`active`** *(boolean)*: Sets whether the BLE scanner should run in active mode.
 
-# `shelly-status-check.py`
+## `shelly-status-check.py`
 
 Shelly Status Checker
 
 This script collects status information from multiple Shelly Gen2 devices in your network and displays it in a neatly formatted table. It supports various metrics such as uptime, WiFi signal strength, MQTT status, debug UDP logging configuration, and installed scripts.
 
-## Features
+### Features
 
 - Queries a list of Shelly devices via their IP or hostname
 - Displays:
@@ -187,7 +187,7 @@ This script collects status information from multiple Shelly Gen2 devices in you
 - Sortable output (by IP, uptime, or WiFi signal)
 - Clean tabular display via `tabulate`
 
-## Installation
+### Installation
 
 1. **Install required Python packages**:
 
@@ -225,7 +225,7 @@ you can also generate your list with nmap, here is an example, all shelly device
 nmap -sP 192.168.1.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
 ```
 
-## Usage
+### Usage
 
 Run the script directly:
 
@@ -235,7 +235,7 @@ Run the script directly:
 
 By default, it sorts the table by IP address.
 
-### Optional: Sort by other metrics
+#### Optional: Sort by other metrics
 
 ```bash
 ./shelly-status-check.py --sort uptime
@@ -250,7 +250,7 @@ By default, it sorts the table by IP address.
 
 ---
 
-## Requirements
+### Requirements
 
 - Python 3.6+
 - Shelly Gen2 devices with RPC enabled
@@ -258,7 +258,7 @@ By default, it sorts the table by IP address.
 
 ---
 
-## Optional Authentication
+### Optional Authentication
 
 If your Shelly devices require HTTP authentication, set:
 
@@ -270,9 +270,9 @@ inside the script.
 
 ---
 
-## Example Output
+### Example Output
 
-```
+```txt
 +-------------------------+-------------+------------+------------+---------------+-------------+--------+-----------------------+-----------------------+
 | IP                      | Reachable   | Uptime     | Eco Mode   | WiFi (dBm)    | Bluetooth   | MQTT   | Debug UDP             | Scripts               |
 +-------------------------+-------------+------------+------------+---------------+-------------+--------+-----------------------+-----------------------+
@@ -280,3 +280,60 @@ inside the script.
 | shelly-garage.local     | ✅           | 0d 7h 53m  | False      | -69           | ❌           | ❌     | –                     | –                     |
 +-------------------------+-------------+------------+------------+---------------+-------------+--------+-----------------------+-----------------------+
 ```
+
+## `shelly-debug-setter.py`
+
+Shelly Gen2 UDP Debug Configurator.
+
+This Python script configures the **UDP debug logging target** for a list of **Shelly Gen2 devices** by sending the appropriate RPC command to each device.
+
+### 🔧 Features
+
+- Automatically applies UDP debug configuration via HTTP.
+- Supports batch configuration of multiple Shelly devices.
+- Flexible input via command-line arguments.
+- Designed for Shelly Gen2 firmware with `rpc/Sys.SetConfig`.
+
+### 📦 Requirements
+
+- Python 3.x
+- `requests` library (`pip install requests`)
+- Gen2 Shelly devices reachable over HTTP in the local network.
+
+### 📁 Device List
+
+Create a text file (default: `shellies.txt`) listing one IP or hostname per line:
+
+```txt
+192.168.1.101
+192.168.1.102
+shelly-pro-kitchen.local
+```
+
+### ▶ Usage
+
+```bash
+python3 shelly_debug_setter.py --host <TARGET_IP> --port <PORT> --file <DEVICE_FILE>
+```
+
+#### Parameters
+
+| Argument     | Required | Description                                  |
+|--------------|----------|----------------------------------------------|
+| `--host`     | ✅ Yes   | The destination IP/hostname for UDP logging  |
+| `--port`     | ✅ Yes   | The UDP port number to send debug logs to    |
+| `--file`     | ❌ No    | Path to file with device IPs (default: `shellies.txt`) |
+
+#### Example
+
+```bash
+python3 shelly_debug_setter.py --host 192.168.1.100 --port 514 --file shellies.txt
+```
+
+This sets all devices listed in `shellies.txt` to send debug logs to `192.168.1.100:514`.
+
+### ❗ Notes
+
+- Only compatible with **Shelly Gen2 devices** using the `/rpc/Sys.SetConfig` endpoint.
+- Devices must be reachable over HTTP and on the same network (or VPN).
+- Authentication is not currently supported — add manually if needed.
