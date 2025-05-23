@@ -1,5 +1,60 @@
 #!/usr/bin/python3
+"""
+Shelly Device Status Checker
+============================
 
+Description:
+------------
+This script queries a list of Shelly IoT devices and displays an overview of
+their current operational status. It uses the Shelly RPC interface to fetch
+system, WiFi, BLE, MQTT and script information, and presents the data in
+a clear table format using the `tabulate` module.
+
+Devices are read from a text file (default: /root/shellies.txt), which should
+contain one IP address per line. Sorting can be customized via CLI arguments.
+
+To generate this list automatically on a local network, you can use:
+    nmap -sP 192.168.60.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
+
+Dependencies:
+-------------
+- Python 3
+- requests
+- tabulate
+
+Install dependencies (if not already installed):
+    pip install requests tabulate
+
+Usage:
+------
+    python3 shelly-status-check.py
+    python3 shelly-status-check.py --file /path/to/devices.txt
+    python3 shelly-status-check.py --sort wifi
+    python3 shelly-status-check.py --file /path/to/devices.txt --sort wifi
+
+Options:
+--------
+--file <path>     Path to the text file containing Shelly IP addresses (default: /root/shellies.txt)
+--sort <key>      Sorting criteria: 'ip', 'uptime', or 'wifi' (default: 'ip')
+
+Expected Output:
+----------------
+A table with the following columns:
+- IP           ... Device IP address
+- Reachable    ... ✅ if reachable, ❌ if not
+- Uptime       ... Formatted uptime (days, hours, minutes)
+- Eco Mode     ... Whether eco_mode is enabled
+- WiFi (dBm)   ... Signal strength
+- Bluetooth    ... Whether BLE is enabled
+- MQTT         ... MQTT connection status
+- Debug UDP    ... Target of debug messages (if configured)
+- Scripts      ... List of script names on the device
+
+Author:
+-------
+Andreas Laub
+
+"""
 # nmap -sP 192.168.60.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > /root/shellies.txt
 
 import requests
@@ -9,10 +64,11 @@ import argparse
 # Argumentparser
 parser = argparse.ArgumentParser(description="Shelly Status Übersicht")
 parser.add_argument("--sort", choices=["uptime", "wifi", "ip"], default="ip", help="Sortierkriterium")
+parser.add_argument("--file", default="shellies.txt", help="Pfad zur Datei mit Shelly-IP-Adressen")
 args = parser.parse_args()
 
 # Geräte einlesen
-with open("/root/shellies.txt", "r") as f:
+with open(args.file, "r") as f:
     shelly_ips = [line.strip() for line in f if line.strip()]
 
 auth = None  # z. B. ('admin', 'passwort')

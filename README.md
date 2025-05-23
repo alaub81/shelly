@@ -7,12 +7,15 @@ This repository covers Shelly scripts for automating power management and lighti
 1. `shelly-idle-timer.js`
 
     Automates switch-off based on low power consumption, saving energy.
+
 2. `shelly-blu-motion.js`
 
     Activates motion detection using a Shelly Blu Motion sensor.
+
 3. `shelly-blu-motion-illuminance.js`
 
     Activates motion detection only in low light, using a Shelly Blu Motion sensor.
+
 4. `shelly-blu-motion-darknight.js`
 
     Controls lighting based on motion, light levels, and night-time detection.
@@ -24,6 +27,10 @@ This repository covers Shelly scripts for automating power management and lighti
 6. `shelly-check.sh`
 
     Shelly Device Online Status check (HTTP Check Script)
+
+7. `shelly-mqtt-config.py`
+
+    Mass MQTT Configuration Script for Shelly Devices
 
 ## `shelly-idle-timer.js`
 
@@ -195,39 +202,39 @@ This script collects status information from multiple Shelly Gen2 devices in you
 
 1. **Install required Python packages**:
 
-```bash
-pip install requests tabulate
-```
+    ```bash
+    pip install requests tabulate
+    ```
 
-or on debian based systems
+    or on debian based systems
 
-```bash
-apt update && apt install python3-requests python3-tabulate
-```
+    ```bash
+    apt update && apt install python3-requests python3-tabulate
+    ```
 
 2. **Make the script executable (optional)**:
 
-```bash
-chmod +x shelly-status-check.py
-```
+    ```bash
+    chmod +x shelly-status-check.py
+    ```
 
 3. **Ensure your Shelly devices are reachable via DNS or static IP**.
 4. **Create a list of device IPs or hostnames in a file named**:
 
-'shellies.txt'
-Each line should contain one hostname or IP:
+    'shellies.txt'
+    Each line should contain one hostname or IP:
 
-```bash
-shelly-kitchen.local
-shelly-garage.local
-192.168.1.42
-```
+    ```bash
+    shelly-kitchen.local
+    shelly-garage.local
+    192.168.1.42
+    ```
 
-you can also generate your list with nmap, here is an example, all shelly devices must have shelly in their hostname:
+    you can also generate your list with nmap, here is an example, all shelly devices must have shelly in their hostname:
 
-```bash
-nmap -sP 192.168.1.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
-```
+    ```bash
+    nmap -sP 192.168.1.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
+    ```
 
 ### Usage
 
@@ -235,6 +242,7 @@ Run the script directly:
 
 ```bash
 ./shelly-status-check.py
+./shelly-status-check.py --file
 ```
 
 By default, it sorts the table by IP address.
@@ -246,11 +254,12 @@ By default, it sorts the table by IP address.
 ./shelly-status-check.py --sort wifi
 ```
 
-| Option       | Description                        |
-|--------------|------------------------------------|
-| `--sort ip`  | Sorts alphabetically by IP/host (default) |
+| Option          | Description                        |
+|-----------------|------------------------------------|
+| `--file </path/to/shellies.txt>` | Path to file containing IPs of Shelly devices default is `./shellies.txt` |
+| `--sort ip`     | Sorts alphabetically by IP/host (default) |
 | `--sort uptime` | Sorts by device uptime (descending) |
-| `--sort wifi` | Sorts by WiFi signal strength (best first) |
+| `--sort wifi`   | Sorts by WiFi signal strength (best first) |
 
 ---
 
@@ -394,3 +403,60 @@ chmod +x /path/to/shelly-check.sh
 ```
 
 > ℹ️ Tip: Configure your system’s `mail` or `postfix` service to forward cron output to your email inbox.
+
+## `shelly-mqtt-config.py`
+
+This script automates the MQTT configuration for multiple Shelly Gen2 devices using their RPC HTTP API.
+
+### Features
+
+- Sends MQTT configuration to each Shelly device listed in a file.
+- Configures:
+  - MQTT server, username, password
+  - client ID and topic prefix per host
+  - TLS, control, and status options
+- Easy bulk setup for large installations
+
+### Requirements
+
+- Python 3
+- `requests` module
+
+Install with:
+
+```bash
+pip install requests
+```
+
+### Usage
+
+```bash
+python3 shelly-mqtt-config.py
+python3 shelly-mqtt-config.py --file ./my-devices.txt
+```
+
+Make sure your device list is valid before running the script.
+
+### Options
+
+| Option   | Description                                                        | Default              |
+|----------|--------------------------------------------------------------------|----------------------|
+| `--file` | Path to a file with Shelly IPs or hostnames (one per line)         | `./shellies.txt` |
+
+### Device List Example (`shellies.txt`)
+
+```txt
+192.168.1.101
+192.168.1.102
+shelly-kitchen.local
+```
+
+To generate this list from your local network:
+
+```bash
+nmap -sP 192.168.1.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
+```
+
+### Note
+
+Make sure to edit the script to include your actual MQTT broker credentials and hostname in the `base_config` section.
