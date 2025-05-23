@@ -21,6 +21,10 @@ This repository covers Shelly scripts for automating power management and lighti
 
     Shelly Status Checker Script, to have a status overview of the shellies.
 
+6. `shelly-check.sh`
+
+    Shelly Device Online Status check (HTTP Check Script)
+
 ## `shelly-idle-timer.js`
 
 This Shelly script, `shelly-idle-timer.js`, is designed to monitor the power consumption of a specified switchID on a Shelly device. It turns off the switch automatically after a specified idle time if the power remains below a set threshold, helping save energy by turning off devices that are not actively in use.
@@ -337,3 +341,56 @@ This sets all devices listed in `shellies.txt` to send debug logs to `192.168.1.
 - Only compatible with **Shelly Gen2 devices** using the `/rpc/Sys.SetConfig` endpoint.
 - Devices must be reachable over HTTP and on the same network (or VPN).
 - Authentication is not currently supported — add manually if needed.
+
+## `shelly-check.sh`
+
+This script performs a basic health check for a list of [Shelly](https://www.shelly.com/) smart devices by sending HTTP requests to their status endpoints. It helps verify whether each device is reachable and responsive.
+
+### 🧰 Features
+
+- Pings all IPs listed in a file and checks status via Shelly HTTP API.
+- Logs which devices are reachable or offline.
+- Default file lookup in the script's directory (`shellies.txt`).
+- Supports optional `--file` parameter for custom input.
+
+### 🚀 Usage
+
+#### Run the script
+
+```bash
+./shelly-check.sh
+```
+
+This will check all devices listed in `shellies.txt` located in the same directory as the script.
+
+#### With a custom input file
+
+```bash
+./shelly-check.sh --file /path/to/my/shellies.txt
+```
+
+### 🧪 Generate Device List Automatically
+
+To find Shelly devices on your local network, you can use `nmap`:
+
+```bash
+nmap -sP 192.168.10.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
+```
+
+### ⏱️ Automate with Cron
+
+To monitor Shelly devices continuously, you can schedule the script to run every 5 minutes using `cron`. If your system is configured to send cron job output via email, you'll receive notifications whenever a device is offline.
+
+#### Example crontab entry
+
+```cron
+*/5 * * * * /path/to/shelly-check.sh --file /path/to/shellies.txt
+```
+
+Ensure the script is executable:
+
+```bash
+chmod +x /path/to/shelly-check.sh
+```
+
+> ℹ️ Tip: Configure your system’s `mail` or `postfix` service to forward cron output to your email inbox.
