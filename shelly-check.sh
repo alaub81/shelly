@@ -13,7 +13,7 @@
 # will iterate through them and log the connectivity status.
 #
 # You can automatically generate the device list using nmap:
-#   nmap -sP 192.168.10.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shelly.txt
+#   nmap -sP 192.168.10.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > shellies.txt
 #
 # Requirements:
 # - curl
@@ -28,6 +28,6 @@ for i in $(cat /root/shellies.txt); do
 	if curl -s --connect-timeout 15 "http://$SHELLY_IP/rpc/Shelly.GetStatus" | grep -q '"id":'; then
     		echo "$(date): Shelly $i ist erreichbar" > /dev/null
 	else
-    		echo "$(date): Shelly http://$i ist OFFLINE!" #>> /root/shelly_monitor.log
+    		echo "$(date): Shelly http://$i ist OFFLINE!" #>> /tmp/shelly_monitor.log
 	fi
 done

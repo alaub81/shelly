@@ -4,7 +4,7 @@ import requests
 import time
 
 # 📥 Hostnamen aus Datei einlesen
-with open("/root/shelly.txt", "r") as f:
+with open("/root/shellies.txt", "r") as f:
     shelly_hosts = [line.strip() for line in f if line.strip()]
 
 # 🔐 Authentifizierung (falls nötig)
@@ -13,9 +13,9 @@ auth = None  # Beispiel: auth = ('admin', 'passwort')
 # 📦 Basis-MQTT-Konfiguration (client_id und topic_prefix werden je Host angepasst)
 base_config = {
     "enable": True,
-    "server": "mqtthostname:8883",
-    "user": "mosquitto",
-    "pass": "password",  # ❗ DEIN MQTT-PASSWORT HIER EINTRAGEN
+    "server": "<MQTT-FQDN>:8883",  # ❗ DEIN MQTT-BROKER FULLY QUALIFIED HOSTNAME HIER EINTRAGEN
+    "user": "<MQTT-USERNAME>", # ❗ DEIN MQTT-BENUTZER HIER EINTRAGEN
+    "pass": "<MQTT-PASSWORD>",  # ❗ DEIN MQTT-PASSWORT HIER EINTRAGEN
     "ssl_ca": "*",
     "rpc_ntf": True,
     "status_ntf": True,

@@ -302,7 +302,7 @@ This Python script configures the **UDP debug logging target** for a list of **S
 
 ### 📁 Device List
 
-Create a text file (default: `shellies.txt`) listing one IP or hostname per line:
+Create a text file (default: `shelly.txt`) listing one IP or hostname per line:
 
 ```txt
 192.168.1.101
