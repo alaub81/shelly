@@ -36,6 +36,23 @@ This repository covers Shelly scripts for automating power management and lighti
 
 This Shelly script, `shelly-idle-timer.js`, is designed to monitor the power consumption of a specified switchID on a Shelly device. It turns off the switch automatically after a specified idle time if the power remains below a set threshold, helping save energy by turning off devices that are not actively in use.
 
+### Functionality
+
+- Starts a timer when the switch is ON and `apower < POWER_THRESHOLD`.
+- If the condition persists for more than `IDLE_TIMEOUT` minutes,
+  the switch will be turned OFF.
+- Reacts to `power_update`, `toggle`, and `input` events.
+
+### Polling Fallback
+
+Some Shelly devices (e.g. Plug S Gen2) only emit `power_update` events
+when power changes significantly. Small or slowly changing values
+may not trigger any event.
+
+To ensure reliable behavior in such cases, the script includes
+an optional polling mechanism that regularly fetches the current
+device state and applies the same idle logic.
+
 ### Configuration Parameters
 
 To customize the behavior of this script, adjust the following parameters in the `CONFIG` object at the beginning of the script:
@@ -46,6 +63,8 @@ To customize the behavior of this script, adjust the following parameters in the
 | `IDLE_TIMEOUT`    | Duration (in minutes) that power must remain below the threshold before turning off the switch. | Integer | `5`           |
 | `SWITCH_ID`       | The ID of the switch on the Shelly device to monitor.                      | Integer | `0`           |
 | `DEBUG_LOG`       | Enables or disables debug logging to the console. Set to `true` for debugging. | Boolean | `false`       |
+| `ENABLE_POLLING`  | Enable `ENABLE_POLLING` if your device does not emit frequent`power_update` events, or if you want to catch subtle idle conditions. true / false | Boolean | `false`       |
+| `POLL_INTERVAL`   | Polling Intervall in Seconds | Integer | `30`       |
 
 ### Script Functionality
 
