@@ -41,6 +41,7 @@ Expected Output:
 ----------------
 A table with the following columns:
 - IP           ... Device IP address
+- Device Type  ... Device Type and Device Generation
 - Reachable    ... ✅ if reachable, ❌ if not
 - Uptime       ... Formatted uptime (days, hours, minutes)
 - Eco Mode     ... Whether eco_mode is enabled
@@ -94,7 +95,8 @@ def parse_rssi(value):
 for ip in shelly_ips:
     row = {
         "IP": ip,
-        "Erreichbar": "❌",
+        "Device Type": "–",
+        "Reachable": "❌",
         "Uptime": "–",
         "UptimeRaw": 0,
         "Eco Mode": "–",
@@ -102,7 +104,7 @@ for ip in shelly_ips:
         "Bluetooth": "–",
         "MQTT": "–",
         "Debug UDP": "–",
-        "Skripte": "–"
+        "Scripts": "–"
     }
 
     try:
@@ -112,8 +114,10 @@ for ip in shelly_ips:
         ble = requests.get(f"http://{ip}/rpc/BLE.GetConfig", auth=auth, timeout=5).json()
         scripts = requests.get(f"http://{ip}/rpc/Script.List", auth=auth, timeout=5).json()
         mqtt = requests.get(f"http://{ip}/rpc/MQTT.GetConfig", auth=auth, timeout=5).json()
+        devinfo = requests.get(f"http://{ip}/rpc/Shelly.GetDeviceInfo", auth=auth, timeout=5).json()
 
-        row["Erreichbar"] = "✅"
+        row["Device Typ"] = f'{devinfo.get("app", "–")} (Gen {devinfo.get("gen", "?")})'
+        row["Reachable"] = "✅"
         row["Eco Mode"] = sysconf.get('device', {}).get('eco_mode', "n.a.")
         row["Debug UDP"] = sysconf.get('debug', {}).get('udp', {}).get('addr', "–")
         row["Uptime"] = format_uptime(sysstatus.get("uptime", 0))
@@ -122,7 +126,7 @@ for ip in shelly_ips:
         row["Bluetooth"] = "✅" if ble.get("enable", False) else "❌"
         row["MQTT"] = "✅" if mqtt.get('enable', False) else "❌"
         script_names = [s["name"] for s in scripts.get("scripts", [])]
-        row["Skripte"] = ", ".join(script_names) if script_names else "–"
+        row["Scripts"] = ", ".join(script_names) if script_names else "–"
 
     except Exception:
         pass
@@ -138,6 +142,6 @@ else:  # Standard: IP
     table_data.sort(key=lambda row: row["IP"])
 
 # Ausgabe
-headers = ["IP", "Erreichbar", "Uptime", "Eco Mode", "WiFi (dBm)", "Bluetooth", "MQTT", "Debug UDP", "Skripte"]
+headers = ["IP", "Device Typ", "Reachable", "Uptime", "Eco Mode", "WiFi (dBm)", "Bluetooth", "MQTT", "Debug UDP", "Scripts"]
 rows = [[row[h] for h in headers] for row in table_data]
 print(tabulate(rows, headers=headers, tablefmt="grid"))
