@@ -64,7 +64,7 @@ import argparse
 
 # Argumentparser
 parser = argparse.ArgumentParser(description="Shelly Status Übersicht")
-parser.add_argument("--sort", choices=["uptime", "wifi", "ip"], default="ip", help="Sortierkriterium")
+parser.add_argument("--sort", choices=["uptime", "wifi", "ip", "devtype"], default="ip", help="Sortierkriterium")
 parser.add_argument("--file", default="shellies.txt", help="Pfad zur Datei mit Shelly-IP-Adressen")
 args = parser.parse_args()
 
@@ -138,6 +138,8 @@ if args.sort == "uptime":
     table_data.sort(key=lambda row: float(row.get("UptimeRaw", 0)), reverse=True)
 elif args.sort == "wifi":
     table_data.sort(key=lambda row: parse_rssi(row["WiFi (dBm)"]), reverse=True)
+elif args.sort == "devtype":
+    table_data.sort(key=lambda row: (row.get("Device Typ", ""), row.get("IP", "")))
 else:  # Standard: IP
     table_data.sort(key=lambda row: row["IP"])
 
