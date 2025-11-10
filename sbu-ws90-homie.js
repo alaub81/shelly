@@ -447,12 +447,12 @@ BLE.Scanner.Subscribe(function (ev,res){
     if (!dev.rain) dev.rain = { last:null, span:900, bucketStart:0, buckets:[] };
 
     var rr   = dev.rain;
-    var nowTs  = merged.ts || ((Date.now()/1000)|0);
+    var now  = merged.ts || ((Date.now()/1000)|0);
     var cur  = merged.precip_mm;       // Counter in mm
     if (rr.last === null) rr.last = cur;
 
     var delta = cur - rr.last;
-    if (delta < 0 || delta > 200) { 
+    if (delta < 0 || delta > 200) {
       delta = 0;
     }
 
@@ -474,7 +474,7 @@ BLE.Scanner.Subscribe(function (ev,res){
     rr.last = cur;
 
     // 1h/24h Add up
-    var sum1h = 0, sum24h = 0, th1 = nowTs - 3600, th24 = nowTs - 86400;
+    var sum1h = 0, sum24h = 0, th1 = now - 3600, th24 = now - 86400;
     for (var bi = rr.buckets.length - 1; bi >= 0; bi--) {
       var b = rr.buckets[bi];
       if (b.t < th24) break;      // older than 24 hours → can be cancelled
