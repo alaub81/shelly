@@ -32,6 +32,18 @@ This repository covers Shelly scripts for automating power management and lighti
 
     Mass MQTT Configuration Script for Shelly Devices
 
+8. `sbu-ws90-homie.js`
+
+    Shelly WS90 Weatherstation BLU Data to Homie MQTT
+
+9. `sbu-ws90-mqtt.js`
+
+    Shelly WS90 Weatherstation BLU Data to MQTT
+
+10. `shelly-restart.py`
+
+    Reboots Shelly Devices via API requests
+
 ## `shelly-idle-timer.js`
 
 This Shelly script, `shelly-idle-timer.js`, is designed to monitor the power consumption of a specified switchID on a Shelly device. It turns off the switch automatically after a specified idle time if the power remains below a set threshold, helping save energy by turning off devices that are not actively in use.
