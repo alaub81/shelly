@@ -192,7 +192,6 @@ function parseBTHome(buf){
 }
 
 //////////////// Homie Device State //////////////////
-// devices[id] = { macColon, last:{}, phase:"new"|"announcing"|"ready", pending:[], _annTimer:0 }
 var devices = {};
 var allowedSet = {};
 for (var i=0;i<allowedMacAddresses.length;i++){
@@ -236,7 +235,7 @@ function mapPropId(decodedName){
   return decodedName; // Fallback
 }
 
-function publishValue(id, node, prop, value){
+function publishValue(id, node, prop, value, force){
   var dev=devices[id]; if(!dev) return;
   if (dev.phase !== "ready"){
     dev.pending.push({node:node, prop:prop, value:value});
@@ -244,11 +243,13 @@ function publishValue(id, node, prop, value){
     return;
   }
   var key=node+"."+prop;
-  if (dev.last[key] === value) return;
+  if (!force && dev.last[key] === value) return;  // <- nur drosseln, wenn nicht forciert
   dev.last[key] = value;
-  pub(homieBase(id)+"/"+node+"/"+prop,
-      (value===true)?"true":(value===false)?"false":String(value),
-      HOMIE_RETAIN);
+  pub(
+    homieBase(id)+"/"+node+"/"+prop,
+    (value===true)?"true":(value===false)?"false":String(value),
+    HOMIE_RETAIN
+  );
 }
 
 //////////////// Homie Announce (Stepper) //////////////////
@@ -396,10 +397,15 @@ BLE.Scanner.Subscribe(function (ev,res){
   var data = parseBTHome(bth);
   if (!data) return;
 
+  // ONE clean timestamp per frame:
+  var nowSec = ((Date.now()/1000)|0);
+
   // Merge
   var merged = cache[mac_nc] || {};
-  var k, now = (Date.now()/1000)|0;
-  for (k in data){ if (k!=="_ids") merged[k]=data[k]; }
+  for (var k in data){ if (k!=="_ids") merged[k]=data[k]; }
+
+  // Set immediately: everything below uses the same time anchor
+  merged.ts = nowSec;
 
   // rain flag
   if (merged.moisture!==undefined) merged.rain_detected = !!merged.moisture;
@@ -410,7 +416,7 @@ BLE.Scanner.Subscribe(function (ev,res){
     merged.wind_gust_ms = ws.length>1 ? ws[1] : null;
     merged.wind_speed_ms = ws[0];
   }
-  // Wind direction: [avg, gust] separate
+  // wind direction: [avg, gust] separate
   if (merged.wind_direction_deg && merged.wind_direction_deg.length!==undefined){
     var wd = merged.wind_direction_deg;
     merged.wind_gust_direction_deg = wd.length>1 ? wd[1] : null;
@@ -420,50 +426,47 @@ BLE.Scanner.Subscribe(function (ev,res){
     merged.wind_gust_direction_deg = merged.wind_direction_deg;
   }
 
-  // Wind: Generate text abbreviations from degrees
+  // Wind text labels
   if (merged.wind_direction_deg != null)
     merged.wind_dir_txt = windLabelDE(merged.wind_direction_deg);
   if (merged.wind_gust_direction_deg != null)
     merged.wind_gust_dir_txt = windLabelDE(merged.wind_gust_direction_deg);
 
-  // Calculate perceived temperature
+  // Feels like temperature
   if (merged.temperature_c != null && merged.humidity_pct != null){
     var vms = (merged.wind_speed_ms != null) ? merged.wind_speed_ms : 0;
     var at  = apparentTempC(merged.temperature_c, merged.humidity_pct, vms);
-    if (at != null) merged.feels_like_c = Math.round(at*10)/10; // 0.1°C
+    if (at != null) merged.feels_like_c = Math.round(at*10)/10;
   }
 
-  // Sea-level pressure (QNH) from station pressure
+  // QNH
   if (merged.pressure_hpa != null){
     var Tused = (merged.temperature_c != null) ? merged.temperature_c : 15;
     var psl = pressureSeaLevel_hPa(merged.pressure_hpa, Tused, ALTITUDE_M);
-    if (psl != null) merged.pressure_sl_hpa = Math.round(psl*10)/10; // 0.1 hPa
+    if (psl != null) merged.pressure_sl_hpa = Math.round(psl*10)/10;
   }
 
-  // Derive rain rolling sums from counter (precip_mm)
+  // Rain rolling sums (nutzt denselben Zeitanker)
   if (merged.precip_mm != null) {
     var id   = devIdFromMacNoColon(mac_nc);
     var dev  = devices[id];
     if (!dev.rain) dev.rain = { last:null, span:900, bucketStart:0, buckets:[] };
 
     var rr   = dev.rain;
-    var now  = merged.ts || ((Date.now()/1000)|0);
-    var cur  = merged.precip_mm;       // Counter in mm
+    var tSec = merged.ts;
+    var cur  = merged.precip_mm;
     if (rr.last === null) rr.last = cur;
 
     var delta = cur - rr.last;
-    if (delta < 0 || delta > 200) {
-      delta = 0;
-    }
+    if (delta < 0 || delta > 200) delta = 0;
 
     if (delta > 0) {
-      var start = Math.floor(now / rr.span) * rr.span; // current 15-minute bucket
+      var start = Math.floor(tSec / rr.span) * rr.span;
       if (start !== rr.bucketStart) {
         rr.bucketStart = start;
         rr.buckets.push({ t:start, mm:0 });
-        if (rr.buckets.length > 128) rr.buckets.shift(); // ~32 h History
+        if (rr.buckets.length > 128) rr.buckets.shift();
       }
-      // Ensure that the last bucket exists
       if (rr.buckets.length === 0) {
         rr.bucketStart = start;
         rr.buckets.push({ t:start, mm:0 });
@@ -473,21 +476,21 @@ BLE.Scanner.Subscribe(function (ev,res){
 
     rr.last = cur;
 
-    // 1h/24h Add up
-    var sum1h = 0, sum24h = 0, th1 = now - 3600, th24 = now - 86400;
+    var sum1h = 0, sum24h = 0, th1 = tSec - 3600, th24 = tSec - 86400;
     for (var bi = rr.buckets.length - 1; bi >= 0; bi--) {
       var b = rr.buckets[bi];
-      if (b.t < th24) break;      // older than 24 hours → can be cancelled
+      if (b.t < th24) break;
       sum24h += b.mm;
       if (b.t >= th1) sum1h += b.mm;
     }
-    // round off (to one decimal place)
     merged.rain_1h_mm  = Math.round(sum1h  * 10) / 10;
     merged.rain_24h_mm = Math.round(sum24h * 10) / 10;
   }
+
   // Meta
   merged.rssi = res.rssi;
-  merged.ts = now;
+
+  // Write cache (without overwriting ts!)
   cache[mac_nc] = merged;
 
   // Publish as homie (mapping to spec-compliant IDs)
@@ -529,7 +532,8 @@ BLE.Scanner.Subscribe(function (ev,res){
   // SYSTEM
   if (merged.battery_pct != null) publishValue(id,"system",mapPropId("battery_pct"), merged.battery_pct);
   if (merged.rssi        != null) publishValue(id,"system","rssi",                   merged.rssi);
-  publishValue(id,"system",mapPropId("last_update"), new Date((merged.ts||((Date.now()/1000)|0))*1000).toISOString());
+  // publishValue(id,"system",mapPropId("last_update"), new Date((merged.ts||((Date.now()/1000)|0))*1000).toISOString());
+  publishValue(id, "system", mapPropId("last_update"), new Date(nowSec*1000).toISOString(), true ); // force update even if unchanged
 });
 
 // Scanner start
