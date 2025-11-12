@@ -94,9 +94,9 @@ var ALTITUDE_M = 94;       // your station height above sea level in metres
 var WIND_DIR_USER_DEG  = 0;      // 0 => Basic flip by +180° remains active
 var WIND_DIR_INVERT_CCW = false; // optional: true = Invert rotation direction (CCW instead of CW)
 // Persistence (KVS)
-var PERSIST_PREFIX = "ws90_persist:"; // KVS-Schlüssel-Präfix
-var PERSIST_DEBOUNCE_MS = 5000;       // Schreibdrossel (Flash-Schonung)
-var PERSIST_MAX_BUCKET_AGE = 86400;   // wir brauchen eh nur 24h
+var PERSIST_PREFIX = "ws90_persist:"; // KVS key prefix
+var PERSIST_DEBOUNCE_MS = 5000;       // Write buffer (flash protection)
+var PERSIST_MAX_BUCKET_AGE = 86400;   // we only need 24 hours anyway
 
 // MAC-Whitelist (colon-lower)
 var allowedMacAddresses = [
@@ -197,7 +197,7 @@ function windLabelDE(deg){
 
 function kvsKeyRain(id){ return PERSIST_PREFIX + id + ":rain"; }
 
-// Alte Buckets wegwerfen (alles >24h alt), defensive Guards:
+// Discard old buckets (everything >24 hours old), defensive guards:
 function pruneBuckets(rr, nowSec){
   if (!rr || !rr.buckets) return rr;
   var th24 = nowSec - PERSIST_MAX_BUCKET_AGE;
@@ -207,12 +207,12 @@ function pruneBuckets(rr, nowSec){
     if (b && b.t >= th24 && typeof b.mm === "number") out.push(b);
   }
   rr.buckets = out;
-  // bucketStart ggf. neu setzen
+  // Reset bucketStart if necessary
   if (out.length>0) rr.bucketStart = out[out.length-1].t;
   return rr;
 }
 
-// Laden (asynchron) – ruft cb() nach Abschluss:
+// Load (asynchronous) – calls cb() upon completion:
 function loadRainFromKVS(id, cb){
   Shelly.call("KVS.Get", { key: kvsKeyRain(id) }, function(r, e){
     var dev = devices[id];
@@ -221,7 +221,7 @@ function loadRainFromKVS(id, cb){
     var nowSec = ((Date.now()/1000)|0);
     var val = r && r.value;
 
-    // Falls KVS als String speichert:
+    // If KVS saves as a string:
     if (typeof val === "string") {
       try { val = JSON.parse(val); } catch(_) { val = null; }
     }
@@ -240,7 +240,7 @@ function loadRainFromKVS(id, cb){
   });
 }
 
-// Speichern (debounced) – vermeidet Flash-Hammer:
+// Save (debounced) – avoids flash hammer:
 function scheduleSaveRain(id){
   var dev = devices[id]; if (!dev) return;
   if (dev._persistTimer){ Timer.clear(dev._persistTimer); dev._persistTimer=0; }
@@ -342,7 +342,7 @@ function publishValue(id, node, prop, value, force){
     return;
   }
   var key=node+"."+prop;
-  if (!force && dev.last[key] === value) return;  // <- nur drosseln, wenn nicht forciert
+  if (!force && dev.last[key] === value) return;  // <- throttle only if not forced
   dev.last[key] = value;
   pub(
     homieBase(id)+"/"+node+"/"+prop,
@@ -545,7 +545,7 @@ BLE.Scanner.Subscribe(function (ev,res){
     if (psl != null) merged.pressure_sl_hpa = Math.round(psl*10)/10;
   }
 
-  // Rain rolling sums (nutzt denselben Zeitanker)
+  // Rain rolling sums (uses the same time anchor)
   if (merged.precip_mm != null) {
     var id   = devIdFromMacNoColon(mac_nc);
     var dev  = devices[id];
@@ -554,14 +554,14 @@ BLE.Scanner.Subscribe(function (ev,res){
     var rr   = dev.rain;
     var tSec = merged.ts;
     var cur  = merged.precip_mm;
-    var delta = 0;                 // <-- sauber initialisieren
+    var delta = 0;                 // <-- initialise cleanly
 
     if (!dev.persistLoaded) {
       if (!rr) dev.rain = rr = { last:null, span:900, bucketStart:0, buckets:[] };
       rr.last = cur;
       dev._bootPrecip = cur;
     } else {
-      // Erstes Sample nach dem Laden? Dann nur initialisieren – kein Delta, kein Bucket.
+      // First sample after loading? Then just initialise – no delta, no bucket.
       if (rr.last == null || typeof rr.last !== "number" || !isFinite(rr.last)) {
         rr.last = cur;
         delta = 0;
@@ -586,13 +586,13 @@ BLE.Scanner.Subscribe(function (ev,res){
 
       rr.last = cur;
 
-      // Nur wenn persistLoaded: Prune + evtl. speichern
+      // Only if persistLoaded: Prune + possibly save
       var beforeLen = rr.buckets.length;
       pruneBuckets(rr, tSec);
       var didPrune = (rr.buckets.length !== beforeLen);
       if (delta > 0 || didPrune) scheduleSaveRain(id);
 
-      // Summen nur wenn persistLoaded
+      // Sum only if persistLoaded
       var sum1h = 0, sum24h = 0, th1 = tSec - 3600, th24 = tSec - 86400;
       for (var bi = rr.buckets.length - 1; bi >= 0; bi--) {
         var b = rr.buckets[bi];
@@ -635,8 +635,8 @@ BLE.Scanner.Subscribe(function (ev,res){
   if (merged.wind_gust_ms            != null) publishValue(id,"wind",mapPropId("wind_gust_ms"),            merged.wind_gust_ms);
   if (merged.wind_direction_deg      != null) publishValue(id,"wind",mapPropId("wind_direction_deg"),      merged.wind_direction_deg);
   if (merged.wind_gust_direction_deg != null) publishValue(id,"wind",mapPropId("wind_gust_direction_deg"), merged.wind_gust_direction_deg);
-  if (merged.wind_dir_txt            != null) publishValue(id,"wind",mapPropId("wind_dir_txt"),                merged.wind_dir_txt);
-  if (merged.wind_gust_dir_txt       != null) publishValue(id,"wind",mapPropId("wind_gust_dir_txt"),           merged.wind_gust_dir_txt);
+  if (merged.wind_dir_txt            != null) publishValue(id,"wind",mapPropId("wind_dir_txt"),            merged.wind_dir_txt);
+  if (merged.wind_gust_dir_txt       != null) publishValue(id,"wind",mapPropId("wind_gust_dir_txt"),       merged.wind_gust_dir_txt);
 
   // RAIN
   if (merged.precip_mm     != null) publishValue(id,"rain",mapPropId("precip_mm"),     merged.precip_mm);
@@ -650,7 +650,7 @@ BLE.Scanner.Subscribe(function (ev,res){
   // SYSTEM
   if (merged.battery_pct != null) publishValue(id,"system",mapPropId("battery_pct"), merged.battery_pct);
   if (merged.rssi        != null) publishValue(id,"system","rssi",                   merged.rssi);
-  // publishValue(id,"system",mapPropId("last_update"), new Date((merged.ts||((Date.now()/1000)|0))*1000).toISOString());
+  
   publishValue(id, "system", mapPropId("last_update"), new Date(nowSec*1000).toISOString(), true ); // force update even if unchanged
 });
 
