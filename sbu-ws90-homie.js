@@ -14,6 +14,7 @@
 //   - Sea-level pressure (QNH) derived from station pressure and altitude
 //   - Rolling rainfall sums for last 1h / 24h derived from the precipitation counter
 //   - MAC whitelist (colon-lower) to filter to specific WS90 stations
+//   - Persistent rolling rain totals across restarts (Shelly KVS, 15-min buckets)
 //
 // Topics (Homie root = "homie")
 //   homie/<device-id>/$state                 : init → ready   (retained, QoS1)
@@ -37,6 +38,41 @@
 //   WIND_DIR_INVERT_CCW : if true, invert rotation sense (CCW vs CW)
 //   allowedMacAddresses : colon-lower MACs to accept
 //   PHASE_GAP_MS      : pacing between announce steps (tune if broker is busy)
+//   PERSIST_PREFIX    : KVS key prefix for rain persistence (default "ws90_persist:")
+//   PERSIST_DEBOUNCE_MS : write throttle to protect flash (default 5000 ms)
+//   PERSIST_MAX_BUCKET_AGE : max age of stored buckets (default 86400 s = 24 h)
+//   (Bucket length is 900 s = 15 min; can be changed in-code via rr.span if nötig.)
+//
+// Persistence (KVS) – how rain totals survive restarts
+//   Storage layout per device (key: PERSIST_PREFIX + <device-id> + ":rain"):
+//     {
+//       last: <number|null>,        // last seen precip_mm counter (mm)
+//       span: 900,                   // bucket width in seconds (15 min)
+//       bucketStart: <epoch-sec>,    // start time of current bucket (aligned)
+//       buckets: [ { t:<epoch-sec>, mm:<sum> }, ... ]  // mm per 15-min window
+//     }
+//   Flow:
+//     - On boot we KVS.Get(). If empty, we init {last:null, span:900, ...}.
+//     - First frame with precip_mm sets a baseline (rr.last = current counter),
+//       but does NOT create deltas yet (no retroactive rain).
+//     - On each subsequent frame, delta = current - rr.last.
+//         • Negative or unrealistically large jumps (>200 mm) are treated as reset/outlier → delta=0, baseline moves.
+//         • If delta>0, it is added to the current 15-min bucket (created/aligned as needed).
+//       Then rr.last = current.
+//     - Buckets older than 24 h are pruned regularly; we save to KVS
+//       debounced (PERSIST_DEBOUNCE_MS) whenever delta>0 or pruning changed data.
+//   Exposed rolling sums:
+//     - rain1h  = sum of buckets with t >= now − 3600
+//     - rain24h = sum of buckets with t >= now − 86400
+//     (Trailing windows, not "since midnight".)
+//   Publish behavior:
+//     - Raw precipitation (precipitation) and rainflag publish as values arrive.
+//     - rain1h / rain24h publish once persistence is loaded and buckets exist;
+//       values are retained like other properties.
+//   Resetting stats (if you really need a clean slate):
+//     - Delete the device key: PERSIST_PREFIX + <device-id> + ":rain"
+//       (e.g. via Shelly script console: KVS.Delete) and restart the script.
+//       After that, a new baseline will be taken on the first reading.
 //
 // Notes & limits
 //   - Script uses Shelly’s built-in MQTT session; a custom LWT for Homie
@@ -44,7 +80,9 @@
 //     as a proxy if you need LWT mapping.
 //   - $-meta topics are published retained with QoS 0 on purpose to reduce load.
 //   - If your broker/device rate-limits, increase PHASE_GAP_MS (e.g., 250–300 ms).
-// ------------------------------------------------------------------------------
+//   - Rolling windows do not count rain before the script observed it.
+//   - Multiple WS90 devices are persisted independently (separate keys per device).
+// -----------------------------------------------------------------------------
 //////////////// CONFIG //////////////////
 var ACTIVE_SCAN  = false;  // true --> also SCAN_RESPONSE
 var QOS          = 1;      // QoS for values & $state
@@ -55,6 +93,10 @@ var ALTITUDE_M = 94;       // your station height above sea level in metres
 // wind directional calibration
 var WIND_DIR_USER_DEG  = 0;      // 0 => Basic flip by +180° remains active
 var WIND_DIR_INVERT_CCW = false; // optional: true = Invert rotation direction (CCW instead of CW)
+// Persistence (KVS)
+var PERSIST_PREFIX = "ws90_persist:"; // KVS-Schlüssel-Präfix
+var PERSIST_DEBOUNCE_MS = 5000;       // Schreibdrossel (Flash-Schonung)
+var PERSIST_MAX_BUCKET_AGE = 86400;   // wir brauchen eh nur 24h
 
 // MAC-Whitelist (colon-lower)
 var allowedMacAddresses = [
@@ -153,6 +195,61 @@ function windLabelDE(deg){
   return labels[idx];
 }
 
+function kvsKeyRain(id){ return PERSIST_PREFIX + id + ":rain"; }
+
+// Alte Buckets wegwerfen (alles >24h alt), defensive Guards:
+function pruneBuckets(rr, nowSec){
+  if (!rr || !rr.buckets) return rr;
+  var th24 = nowSec - PERSIST_MAX_BUCKET_AGE;
+  var out = [];
+  for (var i=0;i<rr.buckets.length;i++){
+    var b = rr.buckets[i];
+    if (b && b.t >= th24 && typeof b.mm === "number") out.push(b);
+  }
+  rr.buckets = out;
+  // bucketStart ggf. neu setzen
+  if (out.length>0) rr.bucketStart = out[out.length-1].t;
+  return rr;
+}
+
+// Laden (asynchron) – ruft cb() nach Abschluss:
+function loadRainFromKVS(id, cb){
+  Shelly.call("KVS.Get", { key: kvsKeyRain(id) }, function(r, e){
+    var dev = devices[id];
+    if (!dev) { if (cb) cb(); return; }
+
+    var nowSec = ((Date.now()/1000)|0);
+    var val = r && r.value;
+
+    // Falls KVS als String speichert:
+    if (typeof val === "string") {
+      try { val = JSON.parse(val); } catch(_) { val = null; }
+    }
+
+    if (val && typeof val === "object") {
+      dev.rain = pruneBuckets(val, nowSec);
+      if (!dev.rain.span) dev.rain.span = 900;
+      if (!dev.rain.buckets) dev.rain.buckets = [];
+    } else {
+      dev.rain = { last:null, span:900, bucketStart:0, buckets:[] };
+    }
+
+    dev.persistLoaded = true;
+    if (dev._bootPrecip != null) { dev.rain.last = dev._bootPrecip; dev._bootPrecip = null; }
+    if (cb) cb();
+  });
+}
+
+// Speichern (debounced) – vermeidet Flash-Hammer:
+function scheduleSaveRain(id){
+  var dev = devices[id]; if (!dev) return;
+  if (dev._persistTimer){ Timer.clear(dev._persistTimer); dev._persistTimer=0; }
+  dev._persistTimer = Timer.set(PERSIST_DEBOUNCE_MS, false, function(){
+    dev._persistTimer = 0;
+    Shelly.call("KVS.Set", { key: kvsKeyRain(id), value: JSON.stringify(dev.rain) }, function(){});
+  });
+}
+
 //////////////// BTHome WS90 Decode //////////////////
 var T = {
   0x00:{n:"pid",                  len:1, s:false, f:1    },
@@ -198,7 +295,9 @@ for (var i=0;i<allowedMacAddresses.length;i++){
   var macC  = macColonLower(allowedMacAddresses[i]);
   var macNC = macNoColonLower(macC);
   var id    = devIdFromMacNoColon(macNC);
-  devices[id] = { macColon: macC, last:{}, phase:"new", pending:[], _annTimer:0 };
+  devices[id] = { macColon: macC, last:{}, phase:"new", pending:[], _annTimer:0,
+                  rain:null, persistLoaded:false, _persistTimer:0, _bootPrecip:null };
+  loadRainFromKVS(id);
   allowedSet[macNC] = true;
 }
 
@@ -455,38 +554,56 @@ BLE.Scanner.Subscribe(function (ev,res){
     var rr   = dev.rain;
     var tSec = merged.ts;
     var cur  = merged.precip_mm;
-    if (rr.last === null) rr.last = cur;
+    var delta = 0;                 // <-- sauber initialisieren
 
-    var delta = cur - rr.last;
-    if (delta < 0 || delta > 200) delta = 0;
-
-    if (delta > 0) {
-      var start = Math.floor(tSec / rr.span) * rr.span;
-      if (start !== rr.bucketStart) {
-        rr.bucketStart = start;
-        rr.buckets.push({ t:start, mm:0 });
-        if (rr.buckets.length > 128) rr.buckets.shift();
+    if (!dev.persistLoaded) {
+      if (!rr) dev.rain = rr = { last:null, span:900, bucketStart:0, buckets:[] };
+      rr.last = cur;
+      dev._bootPrecip = cur;
+    } else {
+      // Erstes Sample nach dem Laden? Dann nur initialisieren – kein Delta, kein Bucket.
+      if (rr.last == null || typeof rr.last !== "number" || !isFinite(rr.last)) {
+        rr.last = cur;
+        delta = 0;
+      } else {
+        delta = cur - rr.last;
+        if (delta < 0 || delta > 200) delta = 0;
       }
-      if (rr.buckets.length === 0) {
-        rr.bucketStart = start;
-        rr.buckets.push({ t:start, mm:0 });
+
+      if (delta > 0) {
+        var start = Math.floor(tSec / rr.span) * rr.span;
+        if (start !== rr.bucketStart) {
+          rr.bucketStart = start;
+          rr.buckets.push({ t:start, mm:0 });
+          if (rr.buckets.length > 128) rr.buckets.shift();
+        }
+        if (rr.buckets.length === 0) {
+          rr.bucketStart = start;
+          rr.buckets.push({ t:start, mm:0 });
+        }
+        rr.buckets[rr.buckets.length-1].mm += delta;
       }
-      rr.buckets[rr.buckets.length-1].mm += delta;
-    }
 
-    rr.last = cur;
+      rr.last = cur;
 
-    var sum1h = 0, sum24h = 0, th1 = tSec - 3600, th24 = tSec - 86400;
-    for (var bi = rr.buckets.length - 1; bi >= 0; bi--) {
-      var b = rr.buckets[bi];
-      if (b.t < th24) break;
-      sum24h += b.mm;
-      if (b.t >= th1) sum1h += b.mm;
+      // Nur wenn persistLoaded: Prune + evtl. speichern
+      var beforeLen = rr.buckets.length;
+      pruneBuckets(rr, tSec);
+      var didPrune = (rr.buckets.length !== beforeLen);
+      if (delta > 0 || didPrune) scheduleSaveRain(id);
+
+      // Summen nur wenn persistLoaded
+      var sum1h = 0, sum24h = 0, th1 = tSec - 3600, th24 = tSec - 86400;
+      for (var bi = rr.buckets.length - 1; bi >= 0; bi--) {
+        var b = rr.buckets[bi];
+        if (b.t < th24) break;
+        sum24h += b.mm;
+        if (b.t >= th1) sum1h += b.mm;
+      }
+      merged.rain_1h_mm  = Math.round(sum1h  * 10) / 10;
+      merged.rain_24h_mm = Math.round(sum24h * 10) / 10;
     }
-    merged.rain_1h_mm  = Math.round(sum1h  * 10) / 10;
-    merged.rain_24h_mm = Math.round(sum24h * 10) / 10;
   }
-
   // Meta
   merged.rssi = res.rssi;
 
@@ -498,7 +615,8 @@ BLE.Scanner.Subscribe(function (ev,res){
   if (!devices[id]){
     var macC = macColonLower(mac_nc);
     devices[id] = { macColon: macC, last:{}, phase:"new", pending:[], _annTimer:0,
-                rain:{ last:null, span:900, bucketStart:0, buckets:[] } }; // 15 min
+                    rain:null, persistLoaded:false, _persistTimer:0, _bootPrecip:null };
+    loadRainFromKVS(id);
   }
   if (devices[id].phase === "new") homieAnnounceOne(id);
 
