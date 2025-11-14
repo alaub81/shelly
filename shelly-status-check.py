@@ -145,5 +145,5 @@ else:  # Standard: IP
 
 # Ausgabe
 headers = ["IP", "Device Typ", "Reachable", "Uptime", "Eco Mode", "WiFi (dBm)", "Bluetooth", "MQTT", "Debug UDP", "Scripts"]
-rows = [[row[h] for h in headers] for row in table_data]
+rows = [[row.get(h, "") for h in headers] for row in table_data]
 print(tabulate(rows, headers=headers, tablefmt="grid"))
