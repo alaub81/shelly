@@ -91,6 +91,7 @@ var HOMIE_VER    = "4.0.0";
 var HOMIE_RETAIN = true;   // retained for values/$state
 var ALTITUDE_M = 94;       // your station height above sea level in metres
 // wind directional calibration
+var WIND_DIR_BASELINE_FLIP_180 = false; // true = always +180° flip (regardless of user setting)
 var WIND_DIR_USER_DEG  = 0;      // 0 => Basic flip by +180° remains active
 var WIND_DIR_INVERT_CCW = false; // optional: true = Invert rotation direction (CCW instead of CW)
 // Persistence (KVS)
@@ -179,15 +180,14 @@ function windLabelDE(deg){
   if (deg == null) return null;
   var d = deg % 360; if (d < 0) d += 360;
 
-  // optional: Reverse rotation direction
   if (WIND_DIR_INVERT_CCW) d = (360 - d);
 
-  // Baseline: always +180° flip, plus your fine adjustment
   var user = parseFloat(WIND_DIR_USER_DEG);
   if (!(user >= -360 && user <= 360)) user = 0;
-  d = d + 180 + user;
 
-  // back in 0..360
+  if (WIND_DIR_BASELINE_FLIP_180) d += 180; // nur wenn wirklich nötig
+  d += user;
+
   d = ((d % 360) + 360) % 360;
 
   var labels = ["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSW","SW","WSW","W","WNW","NW","NNW"];
