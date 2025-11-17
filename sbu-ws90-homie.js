@@ -175,6 +175,9 @@ function pressureSeaLevel_hPa(p_hPa, T_C, h_m){
   return p_hPa * Math.pow(denom, -EXP);
 }
 
+// Integer rounding (null-safe)
+function i0(x){ return (x == null) ? null : Math.round(x); }
+
 // 16-point compass rose (22.5° per sector), German: O = OST / East
 function windLabelDE(deg){
   if (deg == null) return null;
@@ -382,8 +385,8 @@ function homieAnnounceOne(id){
   function f_meta_env_temp(){    m("/env/temperature/$name","Temperature"); m("/env/temperature/$datatype","float"); m("/env/temperature/$unit","°C"); m("/env/temperature/$settable","false"); }
   function f_meta_env_hum(){     m("/env/humidity/$name","Humidity"); m("/env/humidity/$datatype","integer"); m("/env/humidity/$unit","%"); m("/env/humidity/$settable","false"); }
   function f_meta_env_dew(){     m("/env/dewpoint/$name","Dewpoint"); m("/env/dewpoint/$datatype","float"); m("/env/dewpoint/$unit","°C"); m("/env/dewpoint/$settable","false"); }
-  function f_meta_env_press(){   m("/env/pressure/$name","Pressure"); m("/env/pressure/$datatype","float"); m("/env/pressure/$unit","hPa"); m("/env/pressure/$settable","false"); }
-  function f_meta_env_press_sl(){m("/env/pressuresealevel/$name","Pressure (MSL)"); m("/env/pressuresealevel/$datatype","float"); m("/env/pressuresealevel/$unit","hPa"); m("/env/pressuresealevel/$settable","false"); }
+  function f_meta_env_press(){   m("/env/pressure/$name","Pressure"); m("/env/pressure/$datatype","integer"); m("/env/pressure/$unit","hPa"); m("/env/pressure/$settable","false"); }
+  function f_meta_env_press_sl(){m("/env/pressuresealevel/$name","Pressure (MSL)"); m("/env/pressuresealevel/$datatype","integer"); m("/env/pressuresealevel/$unit","hPa"); m("/env/pressuresealevel/$settable","false"); }
   function f_meta_env_illu(){    m("/env/illuminance/$name","Illuminance"); m("/env/illuminance/$datatype","float"); m("/env/illuminance/$unit","lx"); m("/env/illuminance/$settable","false"); }
   function f_meta_env_uv(){      m("/env/uvindex/$name","UV Index"); m("/env/uvindex/$datatype","float"); m("/env/uvindex/$unit","1"); m("/env/uvindex/$settable","false"); }
   function f_meta_env_feels(){   m("/env/feelslike/$name","Feels like"); m("/env/feelslike/$datatype","float"); m("/env/feelslike/$unit","°C"); m("/env/feelslike/$settable","false");
@@ -624,8 +627,8 @@ BLE.Scanner.Subscribe(function (ev,res){
   if (merged.temperature_c    != null) publishValue(id,"env",mapPropId("temperature_c"),   merged.temperature_c);
   if (merged.humidity_pct     != null) publishValue(id,"env",mapPropId("humidity_pct"),    merged.humidity_pct);
   if (merged.dew_point_c      != null) publishValue(id,"env",mapPropId("dew_point_c"),     merged.dew_point_c);
-  if (merged.pressure_hpa     != null) publishValue(id,"env",mapPropId("pressure_hpa"),    merged.pressure_hpa);
-  if (merged.pressure_sl_hpa  != null) publishValue(id,"env",mapPropId("pressure_sl_hpa"), merged.pressure_sl_hpa);
+  if (merged.pressure_hpa     != null) publishValue(id,"env",mapPropId("pressure_hpa"),    i0(merged.pressure_hpa));
+  if (merged.pressure_sl_hpa  != null) publishValue(id,"env",mapPropId("pressure_sl_hpa"), i0(merged.pressure_sl_hpa));
   if (merged.illuminance_lux  != null) publishValue(id,"env",mapPropId("illuminance_lux"), merged.illuminance_lux);
   if (merged.uv_index         != null) publishValue(id,"env",mapPropId("uv_index"),        merged.uv_index);
   if (merged.feels_like_c     != null) publishValue(id,"env",mapPropId("feels_like_c"),    merged.feels_like_c);
