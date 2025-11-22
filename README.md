@@ -44,6 +44,10 @@ This repository covers Shelly scripts for automating power management and lighti
 
     Reboots Shelly Devices via API requests
 
+11. `create_shelly_monitor.py``
+
+    Creates Uptime Kuma Monitors for shelly devices from a list
+
 ## `shelly-idle-timer.js`
 
 This Shelly script, `shelly-idle-timer.js`, is designed to monitor the power consumption of a specified switchID on a Shelly device. It turns off the switch automatically after a specified idle time if the power remains below a set threshold, helping save energy by turning off devices that are not actively in use.
@@ -497,3 +501,91 @@ nmap -sP 192.168.1.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > 
 ### Note
 
 Make sure to edit the script to include your actual MQTT broker credentials and hostname in the `base_config` section.
+
+## `create_shelly_monitors.py` Shelly Monitors for Uptime Kuma
+
+Create HTTP monitors in Uptime Kuma for a list of Shelly devices.
+
+This script:
+
+- Reads Shelly device IP addresses from a text file (one IP per line).
+- Optionally creates (or reuses) a monitor group in Uptime Kuma.
+- Creates an HTTP monitor for each device at:  
+  `http://<IP>/rpc/Shelly.GetStatus`
+- Skips creation if a monitor with the same URL already exists.
+- Allows configuring check interval, retry interval and max retries.
+
+---
+
+### Requirements
+
+- Python 3.8+ (recommended)
+- A running Uptime Kuma instance (e.g. `http://127.0.0.1:3001`)
+- Valid Uptime Kuma username and password
+- The Python library **`uptime-kuma-api`**
+
+Install the required library with:
+
+```bash
+pip install uptime-kuma-api
+```
+
+---
+
+### Input File Format
+
+- Default file name: `shellies.txt` (can be overridden with `--file`)
+- One IP address (or hostname) per line
+- Empty lines and lines starting with `#` are ignored, e.g.:
+
+```text
+# Shelly devices
+192.168.1.10
+192.168.1.11
+# 192.168.1.12 (disabled)
+```
+
+---
+
+### Usage Example
+
+```bash
+python3 create_shelly_monitors.py \
+    --kuma-url http://127.0.0.1:3001 \
+    --username admin \
+    --password 'Your$Secure!Password' \
+    --file /path/to/shellies.txt \
+    --interval 600 \
+    --retry-interval 60 \
+    --maxretries 0 \
+    --group-name "Shelly Devices"
+```
+
+---
+
+### Arguments
+
+- `--kuma-url`  
+  Base URL of the Uptime Kuma instance.
+
+- `--username`  
+  Uptime Kuma username.
+
+- `--password`  
+  Uptime Kuma password.
+
+- `--file`  
+  Path to the Shelly list file (default: `shellies.txt`).
+
+- `--interval`  
+  Check interval in seconds (default: `60`).
+
+- `--retry-interval`  
+  Retry interval in seconds (default: `60`).
+
+- `--maxretries`  
+  Number of retries before marking the monitor as DOWN (default: `0`).
+
+- `--group-name`  
+  Name of the monitor group to put all Shelly monitors into.  
+  If the group does not exist, it will be created.
