@@ -80,7 +80,6 @@ let CONFIG = {
   currentIlluminance: null, // last reported illuminance in lux
   motionStates: {},         // per-sensor motion state: sensorID -> true/false
   activeMotionCount: 0,     // number of sensors currently reporting motion
-  lightIsOn: false,         // last known light state based on MQTT commands
 
   /**
    * Called when motion is reported from the filtered Shelly BLU Motion devices.
@@ -124,32 +123,22 @@ let CONFIG = {
             }
           }
 
-          if (darkEnough) {
-            if (CONFIG.mqtt && CONFIG.mqtt.enabled) {
-              if (!CONFIG.lightIsOn) {
-                MQTT.publish(
-                  CONFIG.mqtt.topic,
-                  String(CONFIG.mqtt.payloadOn),
-                  CONFIG.mqtt.qos,
-                  CONFIG.mqtt.retain
-                );
-                CONFIG.lightIsOn = true;
-                logger(
-                  [
-                    "MQTT ON sent to",
-                    CONFIG.mqtt.topic,
-                    "payload:",
-                    CONFIG.mqtt.payloadOn
-                  ],
-                  "Info"
-                );
-              } else {
-                logger(
-                  ["Motion detected, light already ON, no MQTT sent"],
-                  "Info"
-                );
-              }
-            }
+          if (darkEnough && CONFIG.mqtt && CONFIG.mqtt.enabled) {
+            MQTT.publish(
+              CONFIG.mqtt.topic,
+              String(CONFIG.mqtt.payloadOn),
+              CONFIG.mqtt.qos,
+              CONFIG.mqtt.retain
+            );
+            logger(
+              [
+                "MQTT ON sent to",
+                CONFIG.mqtt.topic,
+                "payload:",
+                CONFIG.mqtt.payloadOn
+              ],
+              "Info"
+            );
           } else {
             logger(
               [
@@ -183,32 +172,22 @@ let CONFIG = {
         );
 
         // If no sensor reports motion anymore, we can turn the light off
-        if (CONFIG.activeMotionCount === 0) {
-          if (CONFIG.mqtt && CONFIG.mqtt.enabled) {
-            if (CONFIG.lightIsOn) {
-              MQTT.publish(
-                CONFIG.mqtt.topic,
-                String(CONFIG.mqtt.payloadOff),
-                CONFIG.mqtt.qos,
-                CONFIG.mqtt.retain
-              );
-              CONFIG.lightIsOn = false;
-              logger(
-                [
-                  "MQTT OFF sent to",
-                  CONFIG.mqtt.topic,
-                  "payload:",
-                  CONFIG.mqtt.payloadOff
-                ],
-                "Info"
-              );
-            } else {
-              logger(
-                ["No motion anywhere, light already OFF, no MQTT sent"],
-                "Info"
-              );
-            }
-          }
+        if (CONFIG.activeMotionCount === 0 && CONFIG.mqtt && CONFIG.mqtt.enabled) {
+          MQTT.publish(
+            CONFIG.mqtt.topic,
+            String(CONFIG.mqtt.payloadOff),
+            CONFIG.mqtt.qos,
+            CONFIG.mqtt.retain
+          );
+          logger(
+            [
+              "MQTT OFF sent to",
+              CONFIG.mqtt.topic,
+              "payload:",
+              CONFIG.mqtt.payloadOff
+            ],
+            "Info"
+          );
         }
       }
     }
