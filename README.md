@@ -44,7 +44,7 @@ This repository covers Shelly scripts for automating power management and lighti
 
     Reboots Shelly Devices via API requests
 
-11. `create_shelly_monitor.py``
+11. `create_shelly_monitor.py`
 
     Creates Uptime Kuma Monitors for shelly devices from a list
 
