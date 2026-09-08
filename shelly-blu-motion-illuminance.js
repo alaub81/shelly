@@ -8,7 +8,7 @@ let CONFIG = {
   active: false,
 
   // Threshold value for darkness in lux
-  darknessThreshold: 25, // Lighting value below this value is considered ‘dark’
+  darknessThreshold: 30, // Lighting value below this value is considered ‘dark’
 
   allowedMacAddresses: [
     "38:39:8f:82:3c:a3",
@@ -322,8 +322,8 @@ let BTHomeDecoder = {
 };
 
 function onReceivedPacket(data) {
-  // Sicherheitsnetz: falls diese Funktion aus anderer Quelle aufgerufen wird,
-  // weiterhin nur erlaubte MAC-Adressen verarbeiten.
+  // Safety net: if this function is called from another source,
+  // continue to process only permitted MAC addresses.
   if (
     typeof CONFIG._processedMacAddresses !== "undefined" &&
     CONFIG._processedMacAddresses !== null
@@ -357,7 +357,7 @@ function onReceivedPacket(data) {
   }
 }
 
-// Empfehlung 3: Duplikatfilter pro MAC-Adresse statt global
+// Recommendation 3: Use duplicate filters per MAC address rather than globally
 let lastPacketIdByAddress = {};
 
 // Callback for the BLE scanner object
@@ -370,11 +370,11 @@ function BLEScanCallback(event, result) {
     return;
   }
 
-  // Empfehlung 4: MAC-Adresse konsequent normalisieren
+  // Recommendation 4: Consistently normalise MAC addresses
   let addr = result.addr.toLowerCase();
 
-  // Empfehlung 2: Erlaubte MAC-Adressen sofort filtern,
-  // bevor service_data dekodiert oder geloggt wird.
+  // Recommendation 2: Permitted MAC addresses filter immediately,
+  // before service_data is decoded or logged.
   if (
     typeof CONFIG._processedMacAddresses !== "undefined" &&
     CONFIG._processedMacAddresses !== null &&
@@ -402,8 +402,8 @@ function BLEScanCallback(event, result) {
     return;
   }
 
-  // Falls kein pid vorhanden ist, nicht global blockieren.
-  // Falls pid vorhanden ist, pro MAC-Adresse filtern.
+  // If no PID is present, do not block globally.
+  // If a PID is present, filter by MAC address.
   if (typeof unpackedData.pid !== "undefined") {
     if (lastPacketIdByAddress[addr] === unpackedData.pid) {
       return;
@@ -425,16 +425,7 @@ function init() {
     return;
   }
 
-  let BLEConfig = Shelly.getComponentConfig("ble");
-
-  if (!BLEConfig.enable) {
-    console.log(
-      "Error: The Bluetooth is not enabled, please enable it from settings"
-    );
-    return;
-  }
-
-  // Erlaubte MAC-Adressen vorbereiten, bevor der Scanner abonniert wird.
+  // Prepare the permitted MAC addresses.
   if (typeof CONFIG.allowedMacAddresses !== "undefined") {
     if (CONFIG.allowedMacAddresses !== null) {
       CONFIG._processedMacAddresses =
@@ -453,23 +444,20 @@ function init() {
     CONFIG._processedMacAddresses = null;
   }
 
-  if (BLE.Scanner.isRunning()) {
-    console.log(
-      "Info: The BLE gateway is running, the BLE scan configuration is managed by the device"
-    );
-  } else {
-    let bleScanner = BLE.Scanner.Start({
-      duration_ms: BLE.Scanner.INFINITE_SCAN,
-      active: CONFIG.active
-    });
+  // First, register to receive scan results.
+  BLE.Scanner.subscribe(BLEScanCallback);
 
-    if (!bleScanner) {
-      console.log("Error: Can not start new scanner");
-      return;
-    }
+  let bleScanner = BLE.Scanner.Start({
+    duration_ms: BLE.Scanner.INFINITE_SCAN,
+    active: CONFIG.active
+  });
+
+  if (!bleScanner) {
+    console.log("Error: Can not start new scanner");
+    return;
   }
 
-  BLE.Scanner.Subscribe(BLEScanCallback);
+  console.log("Info: BLE scanner started");
 }
 
 init();
