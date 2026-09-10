@@ -21,9 +21,11 @@ Dependencies:
 - Python 3
 - requests
 - tabulate
+- wcwidth (lets tabulate correctly measure the width of the ✅/❌/❓ emojis
+  used in this table; without it, emoji columns misalign in most terminals)
 
 Install dependencies (if not already installed):
-    pip install requests tabulate
+    pip install requests tabulate wcwidth
 
 Usage:
 ------
@@ -34,7 +36,7 @@ Usage:
 Options:
 --------
 --file <path>     Path to the text file containing Shelly IP addresses (default: shellies.txt)
---sort <key>      Sorting criteria: 'ip', 'uptime', 'wifi', 'devtype' or 'firmware' (default: 'ip')
+--sort <key>      Sorting criteria: 'ip', 'uptime', 'wifi', 'devtype', 'firmware' or 'response' (default: 'ip')
 
 Expected Output:
 ----------------
@@ -42,6 +44,7 @@ A table with the following columns:
 - IP           ... Device IP address
 - Device Type  ... Device Type and Device Generation
 - Reachable    ... ✅ if reachable, ❌ if not
+- Response Time ... Time it took the device to answer all status requests (in ms)
 - Firmware     ... Currently installed firmware version
 - Uptime       ... Formatted uptime (days, hours, minutes)
 - Eco Mode     ... Whether eco_mode is enabled
@@ -60,13 +63,23 @@ Andreas Laub
 
 import sys
 import re
+import time
 import requests
 from tabulate import tabulate
 import argparse
 
+try:
+    import wcwidth  # noqa: F401  (tabulate erkennt es automatisch und misst dann
+                     # die Breite von Emojis wie ✅/❌/❓ korrekt, damit die
+                     # Tabellenspalten sauber ausgerichtet bleiben)
+except ImportError:
+    print("Hinweis: Paket 'wcwidth' nicht gefunden – die Tabelle kann bei Emojis "
+          "(✅/❌/❓) schief ausgerichtet sein. Beheben mit: pip install wcwidth\n",
+          file=sys.stderr)
+
 # Argumentparser
 parser = argparse.ArgumentParser(description="Shelly Status Übersicht")
-parser.add_argument("--sort", choices=["uptime", "wifi", "ip", "devtype", "firmware"], default="ip", help="Sortierkriterium")
+parser.add_argument("--sort", choices=["uptime", "wifi", "ip", "devtype", "firmware", "response"], default="ip", help="Sortierkriterium")
 parser.add_argument("--file", default="shellies.txt", help="Pfad zur Datei mit Shelly-IP-Adressen")
 
 # Ohne jegliche Parameter: Optionen anzeigen statt mit FileNotFoundError abzubrechen
@@ -114,6 +127,8 @@ for ip in shelly_ips:
         "IP": ip,
         "Device Type": "–",
         "Reachable": "❌",
+        "Response Time": "–",
+        "ResponseTimeRaw": None,
         "Firmware": "–",
         "Uptime": "–",
         "UptimeRaw": 0,
@@ -126,6 +141,8 @@ for ip in shelly_ips:
     }
 
     try:
+        start = time.perf_counter()
+
         sysconf = requests.get(f"http://{ip}/rpc/Sys.GetConfig", auth=auth, timeout=5).json()
         sysstatus = requests.get(f"http://{ip}/rpc/Sys.GetStatus", auth=auth, timeout=5).json()
         wifi = requests.get(f"http://{ip}/rpc/WiFi.GetStatus", auth=auth, timeout=5).json()
@@ -133,6 +150,10 @@ for ip in shelly_ips:
         scripts = requests.get(f"http://{ip}/rpc/Script.List", auth=auth, timeout=5).json()
         mqtt = requests.get(f"http://{ip}/rpc/MQTT.GetConfig", auth=auth, timeout=5).json()
         devinfo = requests.get(f"http://{ip}/rpc/Shelly.GetDeviceInfo", auth=auth, timeout=5).json()
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        row["Response Time"] = f"{elapsed_ms:.0f} ms"
+        row["ResponseTimeRaw"] = elapsed_ms
 
         row["Device Typ"] = f'{devinfo.get("app", "–")} (Gen {devinfo.get("gen", "?")})'
         row["Reachable"] = "✅"
@@ -161,10 +182,13 @@ elif args.sort == "devtype":
     table_data.sort(key=lambda row: (row.get("Device Typ", ""), row.get("IP", "")))
 elif args.sort == "firmware":
     table_data.sort(key=lambda row: parse_version(row.get("Firmware", "")), reverse=True)
+elif args.sort == "response":
+    # Nicht erreichbare Geräte (ResponseTimeRaw ist None) landen ans Ende
+    table_data.sort(key=lambda row: row["ResponseTimeRaw"] if row["ResponseTimeRaw"] is not None else float('inf'))
 else:  # Standard: IP
     table_data.sort(key=lambda row: row["IP"])
 
 # Ausgabe
-headers = ["IP", "Device Typ", "Reachable", "Firmware", "Uptime", "Eco Mode", "WiFi (dBm)", "Bluetooth", "MQTT", "Debug UDP", "Scripts"]
+headers = ["IP", "Device Typ", "Reachable", "Response Time", "Firmware", "Uptime", "Eco Mode", "WiFi (dBm)", "Bluetooth", "MQTT", "Debug UDP", "Scripts"]
 rows = [[row.get(h, "") for h in headers] for row in table_data]
 print(tabulate(rows, headers=headers, tablefmt="grid"))
