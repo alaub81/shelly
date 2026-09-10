@@ -27,15 +27,14 @@ Install dependencies (if not already installed):
 
 Usage:
 ------
-    python3 shelly-status-check.py
-    python3 shelly-status-check.py --file /path/to/devices.txt
-    python3 shelly-status-check.py --sort wifi
+    python3 shelly-status-check.py                  (called without any arguments, prints this help)
     python3 shelly-status-check.py --file /path/to/devices.txt --sort wifi
+    python3 shelly-status-check.py --sort firmware
 
 Options:
 --------
---file <path>     Path to the text file containing Shelly IP addresses (default: /root/shellies.txt)
---sort <key>      Sorting criteria: 'ip', 'uptime', or 'wifi' (default: 'ip')
+--file <path>     Path to the text file containing Shelly IP addresses (default: shellies.txt)
+--sort <key>      Sorting criteria: 'ip', 'uptime', 'wifi', 'devtype' or 'firmware' (default: 'ip')
 
 Expected Output:
 ----------------
@@ -43,6 +42,7 @@ A table with the following columns:
 - IP           ... Device IP address
 - Device Type  ... Device Type and Device Generation
 - Reachable    ... ✅ if reachable, ❌ if not
+- Firmware     ... Currently installed firmware version
 - Uptime       ... Formatted uptime (days, hours, minutes)
 - Eco Mode     ... Whether eco_mode is enabled
 - WiFi (dBm)   ... Signal strength
@@ -58,14 +58,22 @@ Andreas Laub
 """
 # nmap -sP 192.168.60.0/24 | grep "shelly" | awk '/Nmap scan report/ {print $5}' > /root/shellies.txt
 
+import sys
+import re
 import requests
 from tabulate import tabulate
 import argparse
 
 # Argumentparser
 parser = argparse.ArgumentParser(description="Shelly Status Übersicht")
-parser.add_argument("--sort", choices=["uptime", "wifi", "ip", "devtype"], default="ip", help="Sortierkriterium")
+parser.add_argument("--sort", choices=["uptime", "wifi", "ip", "devtype", "firmware"], default="ip", help="Sortierkriterium")
 parser.add_argument("--file", default="shellies.txt", help="Pfad zur Datei mit Shelly-IP-Adressen")
+
+# Ohne jegliche Parameter: Optionen anzeigen statt mit FileNotFoundError abzubrechen
+if len(sys.argv) == 1:
+    parser.print_help()
+    sys.exit(0)
+
 args = parser.parse_args()
 
 # Geräte einlesen
@@ -92,11 +100,21 @@ def parse_rssi(value):
     except:
         return float('-inf')
 
+def parse_version(value):
+    # Wandelt z. B. "1.4.4" in (1, 4, 4) um, damit numerisch statt alphabetisch
+    # sortiert wird (sonst wäre "1.10.0" < "1.9.0"). Nicht erkannte Werte (z. B. "–")
+    # landen ans Ende.
+    parts = re.findall(r"\d+", str(value))
+    if not parts:
+        return (-1,)
+    return tuple(int(p) for p in parts)
+
 for ip in shelly_ips:
     row = {
         "IP": ip,
         "Device Type": "–",
         "Reachable": "❌",
+        "Firmware": "–",
         "Uptime": "–",
         "UptimeRaw": 0,
         "Eco Mode": "–",
@@ -118,6 +136,7 @@ for ip in shelly_ips:
 
         row["Device Typ"] = f'{devinfo.get("app", "–")} (Gen {devinfo.get("gen", "?")})'
         row["Reachable"] = "✅"
+        row["Firmware"] = devinfo.get("ver", devinfo.get("fw_id", "–"))
         row["Eco Mode"] = sysconf.get('device', {}).get('eco_mode', "n.a.")
         row["Debug UDP"] = sysconf.get('debug', {}).get('udp', {}).get('addr', "–")
         row["Uptime"] = format_uptime(sysstatus.get("uptime", 0))
@@ -140,10 +159,12 @@ elif args.sort == "wifi":
     table_data.sort(key=lambda row: parse_rssi(row["WiFi (dBm)"]), reverse=True)
 elif args.sort == "devtype":
     table_data.sort(key=lambda row: (row.get("Device Typ", ""), row.get("IP", "")))
+elif args.sort == "firmware":
+    table_data.sort(key=lambda row: parse_version(row.get("Firmware", "")), reverse=True)
 else:  # Standard: IP
     table_data.sort(key=lambda row: row["IP"])
 
 # Ausgabe
-headers = ["IP", "Device Typ", "Reachable", "Uptime", "Eco Mode", "WiFi (dBm)", "Bluetooth", "MQTT", "Debug UDP", "Scripts"]
+headers = ["IP", "Device Typ", "Reachable", "Firmware", "Uptime", "Eco Mode", "WiFi (dBm)", "Bluetooth", "MQTT", "Debug UDP", "Scripts"]
 rows = [[row.get(h, "") for h in headers] for row in table_data]
 print(tabulate(rows, headers=headers, tablefmt="grid"))
