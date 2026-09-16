@@ -163,7 +163,26 @@ for ip in shelly_ips:
         row["Uptime"] = format_uptime(sysstatus.get("uptime", 0))
         row["UptimeRaw"] = sysstatus.get("uptime", 0)
         row["WiFi (dBm)"] = wifi.get("rssi", "❓")
-        row["Bluetooth"] = "✅" if ble.get("enable", False) else "❌"
+        if "enable" in ble:
+            # Old firmware: Bluetooth enabled/disabled
+            row["Bluetooth"] = "✅" if ble["enable"] else "❌"
+        else:
+            # Firmware 2.0+: current Bluetooth activity
+            try:
+                response = requests.get(
+                    f"http://{ip}/rpc/BLE.GetStatus",
+                    auth=auth,
+                    timeout=5,
+                )
+                response.raise_for_status()
+                ble_status = response.json()
+
+                if "error" in ble_status or "code" in ble_status:
+                    row["Bluetooth"] = "❓"
+                else:
+                    row["Bluetooth"] = "✅" if ble_status.get("flags") else "❌"
+            except (requests.RequestException, ValueError):
+                row["Bluetooth"] = "❓"
         row["MQTT"] = "✅" if mqtt.get('enable', False) else "❌"
         script_names = [s["name"] for s in scripts.get("scripts", [])]
         row["Scripts"] = ", ".join(script_names) if script_names else "–"
