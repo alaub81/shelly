@@ -185,11 +185,10 @@ for ip in shelly_ips:
 
             start = time.perf_counter()
             status = get_rpc(session, ip, "Shelly.GetStatus")
-            elapsed_ms = (time.perf_counter() - start) * 1000
-
             config = get_rpc(session, ip, "Shelly.GetConfig")
             scripts = get_rpc(session, ip, "Script.List")
             devinfo = get_rpc(session, ip, "Shelly.GetDeviceInfo")
+            elapsed_ms = (time.perf_counter() - start) * 1000
 
         sysstatus = status.get("sys", {})
         wifi = status.get("wifi", {})
@@ -200,7 +199,7 @@ for ip in shelly_ips:
         mqtt = config.get("mqtt", {})
         eth = status.get("eth", {})
         rssi = wifi.get("rssi")
-        
+
         row["Response Time"] = f"{elapsed_ms:.0f} ms"
         row["ResponseTimeRaw"] = elapsed_ms
 
